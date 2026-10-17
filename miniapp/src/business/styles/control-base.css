@@ -1,0 +1,125 @@
+/* Базовые стили корня приложения и общих элементов управления (Controls.tsx).
+   Файл подключается первым: правила классов должны перекрывать сбросы элементов
+   из base.css, а все остальные стили приложения — перекрывать эти правила. */
+.opora-theme {
+  width: 100%;
+  background-color: var(--background-surface-primary);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+.opora-action {
+  --opora-action-background: transparent;
+  --opora-action-foreground: var(--text-primary);
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-width: 48px;
+  height: 40px;
+  padding: 10px 12px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 12px;
+  background-color: var(--opora-action-background);
+  color: var(--opora-action-foreground);
+  font-family: var(--family-base);
+  text-decoration: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.opora-action:disabled {
+  cursor: not-allowed;
+}
+.opora-action-primary {
+  --opora-action-background: var(--background-accent-themed);
+  --opora-action-foreground: #fff;
+}
+.opora-action-secondary {
+  --opora-action-background: var(--background-button-secondary);
+}
+.opora-action-ghost:disabled {
+  --opora-action-foreground: var(--text-tertiary);
+}
+.opora-action-content {
+  position: relative;
+  z-index: 1;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1.25rem;
+}
+@media (hover: hover) and (pointer: fine) {
+  .opora-action-secondary:hover:not(:disabled) {
+    --opora-action-background: var(--background-button-secondary-hovered, var(--background-button-secondary));
+  }
+  .opora-action-ghost:hover:not(:disabled) {
+    --opora-action-background: color-mix(in srgb, currentColor 4%, transparent);
+  }
+}
+.opora-action-secondary:active:not(:disabled) {
+  background-color: var(--background-button-secondary-pressed, var(--background-button-secondary));
+}
+.opora-action-ghost:active:not(:disabled) {
+  background-color: color-mix(in srgb, currentColor 8%, transparent);
+}
+.opora-input-control {
+  display: flex;
+  align-items: center;
+  height: 40px;
+  padding: 0 12px;
+  border-radius: 16px;
+  color: var(--text-primary);
+}
+.opora-input-icon {
+  display: flex;
+  margin-right: 12px;
+  color: var(--icon-primary, currentColor);
+}
+.opora-input-body {
+  display: flex;
+  flex-grow: 1;
+  align-items: center;
+}
+.opora-native-input,
+.opora-native-textarea {
+  appearance: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: none;
+  box-shadow: none;
+  color: inherit;
+  font-family: var(--family-base);
+  font-size: 1rem;
+  line-height: 1.25rem;
+  resize: none;
+}
+.opora-native-input {
+  flex-grow: 1;
+  height: inherit;
+}
+.opora-native-input::placeholder,
+.opora-native-textarea::placeholder {
+  color: var(--text-secondary);
+}
+.opora-input-disabled .opora-native-input,
+.opora-input-disabled .opora-native-input::placeholder {
+  color: var(--text-tertiary);
+}
+.opora-textarea {
+  border-radius: 16px;
+  background-color: var(--background-surface-card);
+  color: var(--text-primary);
+}
+.opora-native-textarea {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 12px;
+}

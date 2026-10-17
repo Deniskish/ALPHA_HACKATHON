@@ -1,0 +1,43 @@
+# Зависимости и результаты сборки восстанавливаются командами npm.
+node_modules/
+dist/
+build/
+.vite/
+coverage/
+test-results/
+*.tsbuildinfo
+
+# Локальные ключи не должны попадать в репозиторий.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Необязательные скрипты, временные данные и логи.
+/tools-local/
+tmp/
+*.db
+*.db-journal
+*.log
+debug/
+deploy-package/
+
+# Настройки редакторов и служебные файлы системы.
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Official FNS datasets and local index
+fns-data/
+source-data/
+miniapp/public/ocr/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
