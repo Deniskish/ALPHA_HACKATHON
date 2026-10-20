@@ -17,41 +17,6 @@ React/Vite frontend (каталог `miniapp/`) работает через Expr
 
 Заявка автоматически не отправляется; пользователь переходит на официальный сайт оператора.
 
-## Быстрый запуск Docker
-
-Нужны Docker Engine/Desktop и Docker Compose v2. Из корня репозитория, при первом запуске:
-
-```bash
-cp .env.example .env
-mkdir -p fns-data
-docker compose up --build
-```
-
-Если `.env` уже существует, сохраните его: повторное копирование перезапишет настройки. Запускаются два сервиса: **api** и **miniapp** (frontend).
-
-- Frontend: http://localhost:3000
-- API: http://localhost:3002
-
-```bash
-curl --fail http://localhost:3002/api/health
-curl --fail http://localhost:3000/api/health
-```
-
-Без ключей сервисы должны запускаться, но поиск компании требует DaData либо наполненного индекса ФНС; GigaChat без ключа не считается подключённым. Пустая папка `fns-data` не содержит реестр.
-
-Проверка конфигурации без вывода секретов, сборка и фоновый запуск:
-
-```bash
-docker compose config --quiet
-docker compose build api miniapp
-docker compose up -d api miniapp
-docker compose ps
-curl --fail http://localhost:3000
-curl --fail http://localhost:3000/api/health
-curl --fail http://localhost:3002/api/health
-docker compose down
-```
-
 ## Architecture
 
 ```text
@@ -63,8 +28,6 @@ API → company data / funding / GigaChat
 |---|---|
 | Frontend | `miniapp/index.html` → `src/main.tsx` → `App.tsx` → `business/BusinessApp.tsx` |
 | API | `miniapp/api-server/server.ts` → `business-server.ts`; маршруты в `app.ts` |
-| Docker frontend | `miniapp/Dockerfile` → nginx, конфигурация `docker/nginx.conf` |
-| Production frontend вне Docker | `miniapp/scripts/serve.cjs`, `ecosystem.config.cjs` |
 | Данные | ФНС — read-only SQLite; live-каталог и архив источников — persistent volume; профиль, черновики и история — localStorage браузера |
 
 ## Environment
@@ -78,8 +41,6 @@ API → company data / funding / GigaChat
 | `GIGACHAT_SCOPE`, `GIGACHAT_MODEL` | По умолчанию `GIGACHAT_API_PERS`, `GigaChat-2-Pro` |
 | `AI_SOURCE_SYNC`, `FUNDING_SYNC` | Фоновое обновление источников и каталога мер; `off` отключает соответствующий цикл |
 | `OPORA_SOURCE_DIR`, `OPORA_FUNDING_DIR` | В Compose фиксированы внутри persistent volume: `/data/sources`, `/data/sources/funding` |
-| `PORT` | При запуске API на хосте; в Docker API фиксирован на `3002` |
-| `NODE_EXTRA_CA_CERTS` | Необязательный доверенный PEM; задаётся до запуска Node, в Docker требует mount/override |
 
 Не храните секреты в git. `OPORA_API_URL` из шаблона не управляет текущим Vite proxy: его адрес задан в `miniapp/vite.config.ts`.
 
@@ -261,14 +222,6 @@ curl -H 'Content-Type: application/json' -d '{"profile":{},"need":{"purpose":"п
 GigaChat: OAuth, кеш токена, объединение параллельных обновлений, один повтор после 401, таймауты и обработка ошибок. `GET /api/ai/status` отличает настройку от подтверждённого успешного запроса. До первой успешной генерации configured=true, checked=false, status=unavailable, reason=not_verified. Без ключа — not_configured. Новый `/api/ai/assist` использует контекст, историю, вызовы функций и поиск по эмбеддингам; известные реквизиты скрываются, свободный текст сохраняет смысл. Тексты документов передаются после отдельного запуска пользователем. Старый `/api/assistant` сохраняет полную токенизацию свободного текста и политику strict-v1 для совместимости. Модель не меняет рассчитанные статусы соответствия и не выполняет неподтверждённые изменения профиля.
 
 Если Node TLS возвращает `SELF_SIGNED_CERT_IN_CHAIN` или `UNABLE_TO_GET_ISSUER_CERT_LOCALLY`, настройте доверенную цепочку из [официальной инструкции GigaChat о сертификатах](https://developers.sber.ru/docs/ru/gigachat/certificates) и настройте PEM; не отключайте TLS. Например, `NODE_EXTRA_CA_CERTS=/absolute/path/trusted.pem npm run api:dev`. Запись пути только в dotenv недостаточна: Node читает эту переменную до исполнения JS.
-
-## Дополнительная настройка Docker
-
-Основные команды приведены в начале README. Nginx обслуживает Vite build и проксирует `/api/` на `api:3002`; healthcheck miniapp проверяет этот proxy. API слушает внутри контейнера `0.0.0.0:3002`, на хосте опубликован только на `127.0.0.1:3002`.
-
-FNS volume read-only: импорт выполняется отдельно на хосте. Том `opora-sources` хранит архив источников и live-каталог; `docker compose down` его сохраняет. Не используйте `down -v`, если нужны эти данные.
-
-Для дополнительного CA добавьте compose override с read-only PEM mount и `NODE_EXTRA_CA_CERTS=/certs/trusted.pem` в API. Путь с хоста сам по себе внутри контейнера не существует. `.env`, ключи и сертификаты исключены из build context. TLS для публичного развёртывания завершает внешний HTTPS ingress.
 
 ## Данные, безопасность и ограничения
 
