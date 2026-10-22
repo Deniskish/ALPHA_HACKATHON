@@ -25,7 +25,8 @@
   "include": [
     "src/main.tsx",
     "src/App.tsx",
-    "src/business/**/*.ts",
+    "src/credit/**/*.ts",
+    "src/shared/**/*.ts",
     "src/vite-env.d.ts"
   ],
   "references": [

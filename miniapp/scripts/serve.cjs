@@ -10,7 +10,7 @@ function createApp({ root = path.resolve(__dirname, '../dist'), api = 'http://12
   const app = express();
   app.disable('x-powered-by');
   app.use((_req, res, next) => { res.setHeader('X-Content-Type-Options', 'nosniff'); next(); });
-  // Compress proxied catalogue JSON too: the live catalogue is several MB raw.
+  // Compress proxied API JSON too (bank lists grow with the number of applications).
   app.use(compression());
   // Proxy the original path and body without parsing documents or JSON here.
   app.use(createProxyMiddleware({

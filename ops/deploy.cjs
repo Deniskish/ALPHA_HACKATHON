@@ -98,9 +98,7 @@ async function main(root, sha) {
     const previousVersion = path.join(root, 'miniapp/dist/version.json');
     const previousRevision = fs.existsSync(previousVersion) ? JSON.parse(fs.readFileSync(previousVersion)).revision : undefined;
     const apiEnv = snapshot.find(p => p.name === 'opora-api').pm2_env;
-    const secretNames = ['GIGACHAT_AUTH_KEY', 'GIGACHAT_SCOPE', 'GIGACHAT_MODEL', 'NODE_EXTRA_CA_CERTS', 'NODE_OPTIONS',
-      'DADATA_API_KEY', 'APP_ORIGIN', 'OPORA_SOURCE_DIR', 'FNS_DATA_DIR', 'AI_SOURCE_SYNC',
-      'OPORA_FUNDING_DIR', 'FUNDING_SYNC', 'OPORA_MONITOR_TOKEN'];
+    const secretNames = ['NODE_EXTRA_CA_CERTS', 'NODE_OPTIONS', 'DADATA_API_KEY', 'APP_ORIGIN', 'FNS_DATA_DIR', 'CREDIT_DB_PATH', 'API_RATE_LIMIT'];
     const retainedEnv = {};
     for (const key of secretNames) {
       const value = apiEnv[key] ?? apiEnv.env?.[key];

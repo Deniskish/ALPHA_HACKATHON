@@ -1,7 +1,7 @@
-# Company lookup не включён: реальный индекс ФНС ещё не наполнен.
+# Repeatable public read-only checks of the credit cabinet API. All data is synthetic.
 schemaVersion: '1.0'
 solution:
-  name: Опора
+  name: Кредитный кабинет предпринимателя (демо)
 api:
   baseUrl: http://localhost:3002
   openapi: ./openapi.yaml
@@ -20,6 +20,7 @@ checks:
     requiredFields:
     - status
     - service
+    - credit
   timeoutMs: 5000
   repeatable: true
 - id: providers
@@ -33,87 +34,60 @@ checks:
     contentType: application/json
     requiredFields:
     - company
-    - funding
-    - ai
+    - creditChecks
   timeoutMs: 5000
   repeatable: true
-- id: funding-status
-  name: funding-status
+- id: credit-products
+  name: credit-products
   method: GET
-  path: /api/funding/status
+  path: /api/credit/products
   role: public
   expected:
     statusCodes:
     - 200
     contentType: application/json
     requiredFields:
-    - total
-    - active
-    - closed
-    - upcoming
-    - unknown
-    - snapshotVersion
-    - verifiedAt
-    - sources
+    - products
+    - syntheticLabel
   timeoutMs: 5000
   repeatable: true
-- id: funding-catalog
-  name: funding-catalog
+- id: demo-companies
+  name: demo-companies
   method: GET
-  path: /api/funding/catalog
+  path: /api/demo/companies
   role: public
   expected:
     statusCodes:
     - 200
     contentType: application/json
     requiredFields:
-    - mode
-    - opportunities
+    - companies
+    - syntheticLabel
   timeoutMs: 5000
   repeatable: true
-- id: funding-match
-  name: funding-match
-  method: POST
-  path: /api/funding/match
-  role: public
-  expected:
-    statusCodes:
-    - 200
-    contentType: application/json
-    requiredFields:
-    - mode
-    - need
-    - matches
-    - strategy
-  timeoutMs: 5000
-  repeatable: true
-  request:
-    headers:
-      Content-Type: application/json
-    body:
-      profile: {}
-      need:
-        purpose: Оборудование и модернизация
-        amount: 10000000
-        preferredTermMonths: 60
-- id: ai-status
-  name: ai-status
+- id: applications
+  name: applications
   method: GET
-  path: /api/ai/status
+  path: /api/applications
   role: public
   expected:
     statusCodes:
     - 200
     contentType: application/json
     requiredFields:
-    - configured
-    - provider
-    - model
-    - status
-    - checked
-    - lastSuccess
-    - lastFailure
-    - tasks
-    - reason
+    - applications
+  timeoutMs: 5000
+  repeatable: true
+- id: bank-applications
+  name: bank-applications
+  method: GET
+  path: /api/bank/applications
+  role: public
+  expected:
+    statusCodes:
+    - 200
+    contentType: application/json
+    requiredFields:
+    - applications
   timeoutMs: 5000
   repeatable: true

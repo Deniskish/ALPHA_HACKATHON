@@ -1,43 +1,34 @@
 import { useEffect, useState } from 'react';
-import { ActionButton } from './business/Controls';
-import { BrandWordmark } from './business/AppChrome';
 
-type Workspace = typeof import('./business/BusinessApp')['default'];
-let workspaceRequest: Promise<Workspace> | undefined;
-function loadWorkspace() {
-  return workspaceRequest ??= import('./business/BusinessApp')
+type Cabinet = typeof import('./credit/CreditApp')['default'];
+let cabinetRequest: Promise<Cabinet> | undefined;
+function loadCabinet() {
+  return cabinetRequest ??= import('./credit/CreditApp')
     .then((module) => module.default)
-    .catch((error: unknown) => { workspaceRequest = undefined; throw error; });
+    .catch((error: unknown) => { cabinetRequest = undefined; throw error; });
 }
 
 export default function App() {
-  const [WorkspaceApp, setWorkspaceApp] = useState<Workspace | null>(null);
+  const [CreditApp, setCreditApp] = useState<Cabinet | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
 
   useEffect(() => {
     let active = true;
-    void loadWorkspace().then((component) => {
-      if (active) setWorkspaceApp(() => component);
+    void loadCabinet().then((component) => {
+      if (active) setCreditApp(() => component);
     }).catch(() => {
       if (active) setLoadFailed(true);
     });
     return () => { active = false; };
   }, []);
 
-  if (WorkspaceApp) return <WorkspaceApp />;
-
-  return (
-    <main className="startup-screen" aria-busy={!loadFailed}>
-      <BrandWordmark className="startup-wordmark" />
-      {loadFailed ? <div className="startup-error">
-        <p role="alert">Не удалось загрузить приложение. Проверьте интернет и обновите страницу.</p>
-        <ActionButton className="secondary" onClick={() => window.location.reload()}>
-          Обновить страницу
-        </ActionButton>
-      </div> : <p className="startup-status" role="status">
-        <span className="startup-indicator" aria-hidden="true" />
-        Открываем Опору…
-      </p>}
-    </main>
-  );
+  if (CreditApp) return <CreditApp />;
+  return <main className="cc-main" aria-busy={!loadFailed}>
+    {loadFailed
+      ? <div className="cc-alert cc-alert-danger" role="alert">
+        <span>Не удалось загрузить приложение. Проверьте интернет и обновите страницу.</span>
+        <button type="button" className="cc-link" onClick={() => window.location.reload()}>Обновить страницу</button>
+      </div>
+      : <p className="cc-loading" role="status"><span className="cc-spinner" aria-hidden="true" />Открываем кредитный кабинет…</p>}
+  </main>;
 }

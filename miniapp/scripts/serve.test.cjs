@@ -9,7 +9,7 @@ const { createApp } = require('./serve.cjs');
 test('production serves compressed builds, caches safely and preserves API requests', async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'opora-static-'));
   const html = '<html><script src="/assets/app-a1b2c3d4.js"></script></html>';
-  const script = 'const message = "support";\n'.repeat(300);
+  const script = 'const message = "credit";\n'.repeat(300);
   await fs.mkdir(path.join(root, 'assets'));
   await fs.writeFile(path.join(root, 'index.html'), html);
   await fs.writeFile(path.join(root, 'version.json'), JSON.stringify({ revision: 'test-release' }));
@@ -22,7 +22,7 @@ test('production serves compressed builds, caches safely and preserves API reque
     req.on('data', (data) => { body += data; });
     req.on('end', () => {
       res.writeHead(req.url === '/api/missing' ? 404 : 200, { 'Content-Type': 'application/json' });
-      if (req.url === '/api/funding/catalog') return res.end(JSON.stringify({ opportunities: Array.from({ length: 100 }, (_, id) => ({ id, title: 'Мера поддержки бизнеса', description: 'Официальные условия программы' })) }));
+      if (req.url === '/api/bank/applications') return res.end(JSON.stringify({ applications: Array.from({ length: 100 }, (_, id) => ({ id, companyName: 'ООО «Демо Хлебозавод»', status: 'Заявка готова к отправке' })) }));
       res.end(JSON.stringify({ url: req.url, method: req.method, body, type: req.headers['content-type'] }));
     });
   });
@@ -64,12 +64,12 @@ test('production serves compressed builds, caches safely and preserves API reque
     for (const route of ['/assets/missing.js', '/src/main.tsx', '/@vite/client', '/node_modules/private', '/.env', '/api-server/server.ts']) {
       assert.equal((await fetch(origin + route)).status, 404, route);
     }
-    const body = JSON.stringify({ text: 'Тестовый запрос', amount: 400000 });
-    const proxy = await fetch(origin + '/api/ai/assist?mode=chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
-    assert.deepEqual(await proxy.json(), { url: '/api/ai/assist?mode=chat', method: 'POST', body, type: 'application/json' });
-    const catalog = await fetch(origin + '/api/funding/catalog', { headers: { 'Accept-Encoding': 'gzip' } });
-    assert.equal(catalog.headers.get('content-encoding'), 'gzip', 'Catalogue JSON must be compressed through the API proxy');
-    assert.equal((await catalog.json()).opportunities.length, 100);
+    const body = JSON.stringify({ companyInn: '0001000010', requestedAmount: 400000 });
+    const proxy = await fetch(origin + '/api/applications?source=test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
+    assert.deepEqual(await proxy.json(), { url: '/api/applications?source=test', method: 'POST', body, type: 'application/json' });
+    const list = await fetch(origin + '/api/bank/applications', { headers: { 'Accept-Encoding': 'gzip' } });
+    assert.equal(list.headers.get('content-encoding'), 'gzip', 'API JSON must be compressed through the API proxy');
+    assert.equal((await list.json()).applications.length, 100);
     assert.equal((await fetch(origin + '/api/missing')).status, 404);
     await new Promise((resolve) => backend.close(resolve));
     const unavailable = await fetch(origin + '/api/health');

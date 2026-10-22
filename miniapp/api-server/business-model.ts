@@ -1,4 +1,4 @@
-// Данные бизнеса и подготовленных заявок. Условия мер — в funding-catalog/types.
+// Профиль компании из реестрового поиска (company-data). Кредитная модель — в credit/types.
 import type { FieldProvenance } from './company-data/types';
 
 export type ProfileValues = {
@@ -20,31 +20,6 @@ export type Profile = ProfileValues & {
   applicantType?: 'legal_entity' | 'individual_entrepreneur' | 'individual' | 'team' | 'project';
   provenance?: Partial<Record<keyof ProfileValues | 'applicantType' | 'companyStatus', FieldProvenance>>;
 };
-export type Application = {
-  reviewConfirmed?: boolean;
-  status?: 'draft' | 'collecting_documents' | 'ready_for_review';
-  id: string;
-  programId: string;
-  createdAt: string;
-  documents: Record<string, string>;
-  project: string;
-  budget: string;
-  generatedDraft?: string;
-  draftOrigin?: string;
-  documentFiles?: Record<string, string>;
-  documentTexts?: Record<string, { id: string; name: string; pages: { page: number; text: string }[] }>;
-};
-export const goals = [
-  'Разработка продукта',
-  'Покупка оборудования',
-  'Найм сотрудников',
-  'Выход на экспорт',
-  'Пополнение оборотных средств',
-  'Снижение налоговой нагрузки',
-  'Аренда помещения',
-  'Поиск покупателей',
-  'Обучение команды',
-];
 export const emptyProfile: Profile = {
   industry: '',
   inn: '',

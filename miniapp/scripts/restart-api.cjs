@@ -5,7 +5,7 @@ function restartApi(run = execFileSync, access = require('node:fs').accessSync) 
 const processes = JSON.parse(run('pm2', ['jlist'], { encoding: 'utf8' }));
 const previous = processes.find((process) => process.name === 'opora-api')?.pm2_env;
 const env = { ...process.env, NODE_ENV: 'production' };
-const names = ['GIGACHAT_AUTH_KEY', 'GIGACHAT_SCOPE', 'GIGACHAT_MODEL', 'NODE_EXTRA_CA_CERTS', 'NODE_OPTIONS', 'DADATA_API_KEY', 'APP_ORIGIN', 'OPORA_SOURCE_DIR', 'FNS_DATA_DIR', 'AI_SOURCE_SYNC', 'OPORA_FUNDING_DIR', 'FUNDING_SYNC', 'OPORA_MONITOR_TOKEN'];
+const names = ['NODE_EXTRA_CA_CERTS', 'NODE_OPTIONS', 'DADATA_API_KEY', 'APP_ORIGIN', 'FNS_DATA_DIR', 'CREDIT_DB_PATH', 'API_RATE_LIMIT'];
 for (const name of names) {
   const value = previous?.[name] ?? previous?.env?.[name];
   if (typeof value === 'string') env[name] = value;

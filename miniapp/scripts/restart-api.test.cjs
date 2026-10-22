@@ -7,13 +7,13 @@ test('replace a shell launcher with compiled API and preserve TLS/provider setti
   restartApi((file, args, options) => {
     assert.equal(file, 'pm2');
     calls.push(args[0]);
-    if (args[0] === 'jlist') return JSON.stringify([{ name: 'opora-api', pm2_env: { pm_exec_path: '/bin/bash', GIGACHAT_AUTH_KEY: 'test-key', NODE_EXTRA_CA_CERTS: '/certs/ca.pem', OPORA_SOURCE_DIR: '/sources' } }]);
+    if (args[0] === 'jlist') return JSON.stringify([{ name: 'opora-api', pm2_env: { pm_exec_path: '/bin/bash', DADATA_API_KEY: 'test-key', NODE_EXTRA_CA_CERTS: '/certs/ca.pem', CREDIT_DB_PATH: '/data/credit.sqlite' } }]);
     assert.equal(verified, true);
     if (args[0] === 'start') {
       assert.match(args[1], /dist[/\\]server\.js$/);
-      assert.equal(options.env.GIGACHAT_AUTH_KEY, 'test-key');
+      assert.equal(options.env.DADATA_API_KEY, 'test-key');
       assert.equal(options.env.NODE_EXTRA_CA_CERTS, '/certs/ca.pem');
-      assert.equal(options.env.OPORA_SOURCE_DIR, '/sources');
+      assert.equal(options.env.CREDIT_DB_PATH, '/data/credit.sqlite');
       assert.equal(options.env.PORT, '3002');
       assert.ok(!args.join(' ').includes('test-key'));
     }

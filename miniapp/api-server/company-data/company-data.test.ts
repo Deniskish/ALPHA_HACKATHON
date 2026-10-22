@@ -7,7 +7,6 @@ import { CompanyDataService, ageInMonths, companyDataToProfile } from './service
 import { companyDataRouter } from './router';
 import { FNSOpenDataProvider, SMERegistryProvider } from './official-providers';
 import type { CompanyDataProvider, CompanyResponse } from './types';
-import { privateCompletion } from '../privacy';
 
 const now = () => new Date('2026-09-22T12:00:00Z');
 const provider = new DemoCompanyDataProvider();
@@ -153,20 +152,4 @@ test('unconfigured and failed sources never turn into 404 or demo success', asyn
       assert.ok(!(await response.text()).includes('SECRET_PROVIDER_ERROR'));
     } finally { await app.close(); }
   }
-});
-test('GigaChat wire payload excludes company identifiers, raw source data and provenance', async () => {
-  const data = await service.getCompanyByInn('9900000024');
-  assert.ok(data);
-  let wire = '';
-  await privateCompletion({ question: 'Поддержка', context: {
-    profile: { ...data.profile, ogrn: '1234567890123', email: 'private@example.test' },
-    company: data.company, sources: data.sources, provenance: data.provenance,
-  } }, { endpoint: 'https://example.test/completions', token: 'test', model: 'test' },
-  (async (_url, init) => {
-    wire = String(init?.body);
-    return new Response(JSON.stringify({ choices: [{ message: { content: 'Проверьте условия.' } }] }));
-  }) as typeof fetch);
-  for (const secret of [data.company.inn, data.company.name!, data.company.source, 'opora-demo-v1', '1234567890123', 'private@example.test'])
-    assert.ok(!wire.includes(secret), secret);
-  assert.ok(wire.includes('КФХ'));
 });
