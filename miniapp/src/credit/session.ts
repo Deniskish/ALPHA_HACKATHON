@@ -14,6 +14,8 @@ export function setSession(next: DemoSession | null) {
   current = next;
   try { if (next) sessionStorage.setItem(key, JSON.stringify(next)); else sessionStorage.removeItem(key); } catch { /* demo works without storage */ }
   listeners.forEach((listener) => listener());
+  // Entering or leaving a company opens its cabinet from the top, not at the scroll position of the login list.
+  if (typeof window !== 'undefined' && typeof window.scrollTo === 'function') window.scrollTo({ top: 0 });
 }
 export function useSession() {
   return useSyncExternalStore((listener) => { listeners.add(listener); return () => { listeners.delete(listener); }; }, () => current, () => null);

@@ -1,7 +1,6 @@
 // Запускаем React. Тема одна — светлая, в духе дизайн-системы Альфа-Банка.
 import { StrictMode, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
-import '@fontsource-variable/manrope';
 import App from './App';
 import { installViewportSizing } from './viewport';
 import './index.css';

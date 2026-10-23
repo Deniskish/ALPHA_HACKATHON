@@ -6,8 +6,19 @@ import { Textarea } from '@alfalab/core-components-textarea';
 import { Select } from '@alfalab/core-components-select';
 import { RadioGroup } from '@alfalab/core-components-radio-group';
 import { Radio } from '@alfalab/core-components-radio';
+import { CircularProgressBar } from '@alfalab/core-components-circular-progress-bar';
+import { OfficeMIcon } from '@alfalab/icons-glyph/OfficeMIcon';
+import { ChartPieCoinsMIcon } from '@alfalab/icons-glyph/ChartPieCoinsMIcon';
+import { ScalesMIcon } from '@alfalab/icons-glyph/ScalesMIcon';
+import { ClockMIcon } from '@alfalab/icons-glyph/ClockMIcon';
+import { CalculatorMIcon } from '@alfalab/icons-glyph/CalculatorMIcon';
+import { DocumentLinesMIcon } from '@alfalab/icons-glyph/DocumentLinesMIcon';
+import { CheckmarkCircleMIcon } from '@alfalab/icons-glyph/CheckmarkCircleMIcon';
+import { ExclamationCircleMIcon } from '@alfalab/icons-glyph/ExclamationCircleMIcon';
+import { ArrowRightMIcon } from '@alfalab/icons-glyph/ArrowRightMIcon';
 import { creditApi, type ApplicationView } from './api';
-import { ErrorNote, Facts, ProgressBar, Section, SyntheticBadge, Why } from './ui';
+import { ErrorNote, Facts, Money, Note, ProgressBar, Section, SyntheticBadge, Why } from './ui';
+import { fieldIdOf, itemTitle, readinessSummary } from './readiness-view';
 import { businessAgeMonths, errorMessage, formatAge, formatDate, formatRub, groupDigits, months, parseAmount } from './format';
 import { navigate } from './routes';
 import { documentLabels, purposeLabels } from '../../api-server/credit/labels';
@@ -61,8 +72,21 @@ const fieldsOf = (view: ApplicationView): Fields => {
 const groupTitles: Record<ReadinessGroup, string> = { company: 'Компания', finance: 'Финансы', obligations: 'Обязательства', history: 'Кредитная история',
   financing: 'Параметры финансирования', documents: 'Документы' };
 
-function Field({ why: text, children }: { why: string; children: ReactNode }) {
-  return <div className="op-field-why">{children}<Why text={text} /></div>;
+/** Field with «Зачем банк спрашивает это?» and an anchor for the readiness checklist. */
+function Field({ why: text, id, children }: { why: string; id?: string; children: ReactNode }) {
+  return <div className="op-field-why" id={id}>{children}<Why text={text} /></div>;
+}
+
+const plural = (n: number, one: string, few: string, many: string) =>
+  n % 10 === 1 && n % 100 !== 11 ? one : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? few : many;
+
+/** Scrolls to the questionnaire field that fixes a readiness item and focuses its input. */
+function focusField(id: string) {
+  const element = document.getElementById(id);
+  if (!element) return;
+  element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  const input = element.querySelector<HTMLElement>('input:not([type="file"]):not([type="radio"]), textarea, button');
+  setTimeout(() => input?.focus({ preventScroll: true }), 350);
 }
 
 export function FormStep({ view, onChange, onSubmit }: { view: ApplicationView; onChange: (view: ApplicationView) => void; onSubmit: () => void }) {
@@ -70,6 +94,10 @@ export function FormStep({ view, onChange, onSubmit }: { view: ApplicationView; 
   const [fields, setFields] = useState(() => fieldsOf(view));
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
+  /** Set after an attempt to submit an incomplete questionnaire: every invalid field shows its error. */
+  const [attempted, setAttempted] = useState(false);
+  const [touched, setTouched] = useState<Set<string>>(() => new Set());
+  const touch = (name: string) => () => setTouched((prev) => prev.has(name) ? prev : new Set(prev).add(name));
   const versionRef = useRef(app.version);
   versionRef.current = app.version;
   // Server responses are the source of truth for the form.
@@ -122,31 +150,59 @@ export function FormStep({ view, onChange, onSubmit }: { view: ApplicationView; 
       if (current && !current.documents.some((d) => d.type === type)) current = await run('demo', () => creditApi.addDocument(app.id,
         { type, fileName: `demo-${type.toLowerCase().replace(/_/g, '-')}.pdf`, mimeType: 'application/pdf', sizeBytes: 184_320, textCharacters: 5200 }));
   };
-  const submit = async () => {
-    const saved = await save();
-    if (saved?.application.state === 'READY_TO_SUBMIT') onSubmit();
+
+  // ---- Field-level validation: the same rules as the server readiness, shown right at the field ----
+  const amount = parseAmount(fields.amount), term = Number(fields.term), descriptionLength = fields.description.trim().length;
+  const missingCodes = new Set(view.readiness.missing.map((m) => m.code));
+  const requested = view.decision?.outcome === 'NEEDS_INFO' ? view.decision.requiredInfo : [];
+  const show = (name: string) => attempted || touched.has(name);
+  const errors: Record<string, string | undefined> = {
+    description: descriptionLength > 0 && descriptionLength < MIN_DESCRIPTION_LENGTH
+      ? `Опишите цель подробнее: нужно не меньше ${MIN_DESCRIPTION_LENGTH} символов, сейчас ${descriptionLength}.`
+      : descriptionLength === 0 && (show('description') || missingCodes.has('purposeDescription') && attempted)
+        ? `Опишите, на что пойдут деньги — хотя бы одно предложение (от ${MIN_DESCRIPTION_LENGTH} символов).` : undefined,
+    amount: !amount ? (show('amount') ? 'Укажите сумму' : undefined)
+      : product && (amount < product.minAmount || amount > product.maxAmount)
+        ? `Для продукта «${product.name}» сумма — от ${formatRub(product.minAmount)} до ${formatRub(product.maxAmount)}` : undefined,
+    term: !term ? (show('term') ? 'Укажите срок в месяцах' : undefined)
+      : product && (term < product.minTermMonths || term > product.maxTermMonths)
+        ? `Срок для этого продукта — от ${product.minTermMonths} до ${months(product.maxTermMonths)}` : undefined,
+    purpose: product && fields.purpose && !product.purposes.includes(fields.purpose) ? 'Этот продукт не финансирует выбранную цель — выберите цель из списка или другой продукт' : undefined,
+    revenue: !parseAmount(fields.revenue) && (missingCodes.has('declaredFinancials') || requested.some((r) => r.field === 'declaredFinancials')) && show('revenue')
+      ? 'Укажите выручку за последний год — без неё банк не оценит платёжеспособность' : undefined,
+    expenses: parseAmount(fields.expenses) === null && (missingCodes.has('declaredFinancials') || requested.some((r) => r.field === 'declaredFinancials')) && show('expenses')
+      ? 'Укажите расходы за год — из них считается прибыль' : undefined,
+    debt: parseAmount(fields.debt) === null && fields.revenue && show('debt') ? 'Укажите сумму кредитов, 0 — если их нет' : undefined,
+    overdueDays: fields.overdue === 'yes' && !(Number(fields.overdueDays) > 0) ? 'Укажите самую длинную просрочку в днях' : undefined,
   };
 
   const needed = new Set<DocumentType>(view.readiness.items.filter((i) => i.required && i.code.startsWith('document:')).map((i) => i.code.slice(9) as DocumentType));
-  const requested = view.decision?.outcome === 'NEEDS_INFO' ? view.decision.requiredInfo : [];
   for (const item of requested) if (item.documentType) needed.add(item.documentType);
   const optional = (['FINANCIAL_STATEMENT', ...(company.source === 'manual' ? ['REGISTRY_EXTRACT'] : [])] as DocumentType[]).filter((type) => !needed.has(type));
   const dirty = Object.keys(pendingPatch()).length > 0;
-  const canSubmit = app.state === 'READY_TO_SUBMIT' || (dirty && app.state !== 'NEEDS_INFO');
+  const summary = readinessSummary(view.readiness, fields.description);
+  const localErrors = Object.entries(errors).filter(([, message]) => message);
+  const submit = async () => {
+    const saved = await save();
+    if (saved?.application.state === 'READY_TO_SUBMIT' && !localErrors.length) { onSubmit(); return; }
+    // Explain instead of a silently disabled button: highlight every problem and go to the first one.
+    setAttempted(true);
+    const first = localErrors[0]?.[0] ?? (saved ? saved.readiness.missing[0]?.code : undefined);
+    if (first) focusField(localErrors.length ? `field-${first}` : fieldIdOf(first));
+  };
   const financials = declared();
   const age = businessAgeMonths(company.registrationDate, new Date());
   const money = (key: 'amount' | 'revenue' | 'expenses' | 'debt') => (_: unknown, { value }: { value: string }) => setFields({ ...fields, [key]: groupDigits(parseAmount(value)) });
   const source = company.relationship === 'client' ? 'Данные банка' : company.isSynthetic ? 'Синтетический реестр' : company.source === 'manual' ? 'Введено вами' : 'Реестр';
-  const missingIn = (group: ReadinessGroup) => view.readiness.missing.filter((m) => m.group === group).length;
+  const ready = summary.ready && !localErrors.length && !dirty;
   return <div className="op-workspace">
     <div className="op-workspace-main" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) void save(); }}>
-      {requested.length > 0 && <div className="op-alert op-alert-warning" role="status">
-        <strong>{view.decision!.summary}</strong>
-        <ul>{requested.map((item) => <li key={item.code}>{item.text}</li>)}</ul>
-        <span>{view.decision!.nextAction}</span>
-      </div>}
+      {requested.length > 0 && <Note view="attention" title={view.decision!.summary}>
+        <ul className="op-plain">{requested.map((item) => <li key={item.code}>{item.text}</li>)}</ul>
+        <p>{view.decision!.nextAction}</p>
+      </Note>}
       {error && <ErrorNote error={error} />}
-      <Section title="Компания" aside={<span className="op-muted">{source}</span>}>
+      <Section title="Компания" icon={OfficeMIcon} id="section-company" aside={<span className="op-source">{source}</span>}>
         {company.isSynthetic && <SyntheticBadge />}
         <Facts items={[['Название', company.name], ['ИНН', company.inn],
           ['Регистрация', `${formatDate(company.registrationDate)}${age !== null ? ` · ${formatAge(age)}` : ''}`],
@@ -154,54 +210,64 @@ export function FormStep({ view, onChange, onSubmit }: { view: ApplicationView; 
           ...(company.employees !== null ? [['Сотрудников', String(company.employees)]] as [string, string][] : [])]} />
         <p className="op-muted op-small">Срок работы, отрасль и регион используются в подборе продукта, скоринге и модели риска.</p>
       </Section>
-      <Section title="Финансы за последний год" aside={company.relationship === 'client' && app.declaredFinancials ? <span className="op-muted">подставлено по данным банка</span> : undefined}>
-        <div className="op-form-grid">
-          <Field why={why.revenue}><Input label="Выручка, ₽" inputMode="numeric" block value={fields.revenue} onChange={money('revenue')} /></Field>
-          <Field why={why.expenses}><Input label="Расходы, ₽" inputMode="numeric" block value={fields.expenses} onChange={money('expenses')} /></Field>
-          <div className="op-computed"><span className="op-muted">Прибыль</span><strong>{financials ? formatRub(financials.revenue - financials.expenses) : '—'}</strong></div>
+      <Section title="Финансы за последний год" icon={ChartPieCoinsMIcon}
+        aside={company.relationship === 'client' && app.declaredFinancials ? <span className="op-source">подставлено по данным банка</span> : undefined}>
+        <div className="op-form-grid op-form-grid-3">
+          <Field why={why.revenue} id="field-revenue"><Input label="Выручка, ₽" inputMode="numeric" block value={fields.revenue} onChange={money('revenue')}
+            onBlur={touch('revenue')} error={errors.revenue} /></Field>
+          <Field why={why.expenses} id="field-expenses"><Input label="Расходы, ₽" inputMode="numeric" block value={fields.expenses} onChange={money('expenses')}
+            onBlur={touch('expenses')} error={errors.expenses} /></Field>
+          <div className="op-computed" data-negative={financials ? financials.revenue - financials.expenses <= 0 : undefined}>
+            <span className="op-muted op-small">Прибыль</span><strong>{financials ? <Money value={financials.revenue - financials.expenses} /> : '—'}</strong></div>
         </div>
       </Section>
-      <Section title="Обязательства">
+      <Section title="Обязательства" icon={ScalesMIcon}>
         <div className="op-form-grid">
-          <Field why={why.currentDebt}><Input label="Текущие кредиты и займы, ₽" inputMode="numeric" block value={fields.debt} onChange={money('debt')} /></Field>
-          <Field why={why.activeLoans}><Input label="Количество действующих кредитов" inputMode="numeric" block value={fields.loans} maxLength={2}
-            onChange={(_, { value }) => setFields({ ...fields, loans: value.replace(/\D/g, '') })} /></Field>
+          <Field why={why.currentDebt} id="field-debt"><Input label="Текущие кредиты и займы, ₽" inputMode="numeric" block value={fields.debt} onChange={money('debt')}
+            onBlur={touch('debt')} error={errors.debt} /></Field>
+          <Field why={why.activeLoans} id="field-loans"><Input label="Количество действующих кредитов" inputMode="numeric" block value={fields.loans} maxLength={2}
+            onChange={(_, { value }) => setFields({ ...fields, loans: value.replace(/\D/g, '') })} hint="Желательно: сверяется с бюро кредитных историй" /></Field>
         </div>
       </Section>
-      <Section title="Кредитная история">
-        <Field why={why.overdue}>
+      <Section title="Кредитная история" icon={ClockMIcon}>
+        <Field why={why.overdue} id="field-overdue">
           <RadioGroup label="Были ли просрочки по кредитам за последние 12 месяцев?" direction="horizontal" value={fields.overdue || undefined}
             onChange={(_, { value }) => setFields({ ...fields, overdue: value as 'yes' | 'no' })}>
             <Radio value="no" label="Нет" /><Radio value="yes" label="Да" />
           </RadioGroup>
         </Field>
-        {fields.overdue === 'yes' && <Input label="Самая длинная просрочка, дней" inputMode="numeric" block value={fields.overdueDays} maxLength={4}
-          onChange={(_, { value }) => setFields({ ...fields, overdueDays: value.replace(/\D/g, '') })} />}
+        {fields.overdue === 'yes' && <div id="field-overdueDays"><Input label="Самая длинная просрочка, дней" inputMode="numeric" block value={fields.overdueDays} maxLength={4}
+          onChange={(_, { value }) => setFields({ ...fields, overdueDays: value.replace(/\D/g, '') })} error={errors.overdueDays} /></div>}
         <p className="op-muted op-small">Ответ сверяется с бюро кредитных историй (в демо — синтетическим). Расхождение банк увидит в причинах решения.</p>
       </Section>
-      <Section title="Параметры финансирования">
+      <Section title="Параметры финансирования" icon={CalculatorMIcon}>
         <div className="op-form-grid">
-          <div className="op-computed"><span className="op-muted">Продукт</span><strong>{product?.name ?? 'Не выбран'}</strong>
+          <div className="op-computed"><span className="op-muted op-small">Продукт</span><strong>{product?.name ?? 'Не выбран'}</strong>
             <button type="button" className="op-link" onClick={() => navigate({ name: 'application', id: app.id, stage: 'match' })}>Изменить</button></div>
-          <Select label="Цель" block options={(product?.purposes ?? []).map((p) => ({ key: p, content: purposeLabels[p] }))} selected={fields.purpose ?? null}
-            onChange={({ selected }) => setFields({ ...fields, purpose: (selected?.key ?? null) as CreditPurpose | null })} />
-          <Field why={why.amount}><Input label="Сумма, ₽" inputMode="numeric" block value={fields.amount} onChange={money('amount')}
-            hint={product ? `${formatRub(product.minAmount)} – ${formatRub(product.maxAmount)}` : undefined} /></Field>
-          <Field why={why.term}><Input label="Срок, мес." inputMode="numeric" block value={fields.term} maxLength={3}
-            onChange={(_, { value }) => setFields({ ...fields, term: value.replace(/\D/g, '') })}
+          <div id="field-purpose"><Select label="Цель" block options={(product?.purposes ?? []).map((p) => ({ key: p, content: purposeLabels[p] }))} selected={fields.purpose ?? null}
+            onChange={({ selected }) => setFields({ ...fields, purpose: (selected?.key ?? null) as CreditPurpose | null })} error={errors.purpose} /></div>
+          <Field why={why.amount} id="field-amount"><Input label="Сумма, ₽" inputMode="numeric" block value={fields.amount} onChange={money('amount')} onBlur={touch('amount')}
+            error={errors.amount} hint={product ? `${formatRub(product.minAmount)} – ${formatRub(product.maxAmount)}` : undefined} /></Field>
+          <Field why={why.term} id="field-term"><Input label="Срок, мес." inputMode="numeric" block value={fields.term} maxLength={3} onBlur={touch('term')}
+            onChange={(_, { value }) => setFields({ ...fields, term: value.replace(/\D/g, '') })} error={errors.term}
             hint={product ? `от ${product.minTermMonths} до ${months(product.maxTermMonths)}` : undefined} /></Field>
         </div>
-        <Field why={why.description}><Textarea label="Описание цели финансирования" block minRows={3} maxLength={2000} value={fields.description}
-          onChange={(_, { value }) => setFields({ ...fields, description: value })} hint={`Не короче ${MIN_DESCRIPTION_LENGTH} символов`} /></Field>
+        <Field why={why.description} id="field-description"><Textarea label="Описание цели финансирования" block minRows={3} maxLength={2000} value={fields.description}
+          onChange={(_, { value }) => setFields({ ...fields, description: value })} onBlur={touch('description')} error={errors.description}
+          hint={descriptionLength >= MIN_DESCRIPTION_LENGTH ? 'Достаточно подробно' : `Не короче ${MIN_DESCRIPTION_LENGTH} символов · сейчас ${descriptionLength}`} /></Field>
       </Section>
-      <Section title="Документы" aside={<span className="op-muted">Файлы читаются в браузере — на сервер уходят только название и размер</span>}>
+      <Section title="Документы" icon={DocumentLinesMIcon} description="Файлы читаются в браузере — на сервер уходят только название и размер">
         <ul className="op-documents">
           {[...needed, ...optional].map((type) => {
             const uploaded = view.documents.filter((d) => d.type === type);
-            return <li key={type} data-done={uploaded.length > 0}>
+            const missing = needed.has(type) && !uploaded.length;
+            return <li key={type} id={`doc-${type}`} data-done={uploaded.length > 0} data-missing={missing && attempted ? true : undefined}>
+              {uploaded.length ? <CheckmarkCircleMIcon className="op-doc-icon" data-ok="true" aria-hidden="true" />
+                : <DocumentLinesMIcon className="op-doc-icon" aria-hidden="true" />}
               <div>
                 <strong>{documentLabels[type]}</strong>
                 <span className="op-muted">{needed.has(type) ? 'Обязательный' : 'Желательный'}{uploaded.length ? ` · ${uploaded.map((d) => d.fileName).join(', ')}` : ''}</span>
+                {missing && attempted && <span className="op-field-error">Приложите файл — без него заявку не отправить</span>}
               </div>
               <div className="op-document-actions">
                 <label className="op-file-button">{uploaded.length ? 'Заменить' : 'Загрузить файл'}
@@ -216,25 +282,50 @@ export function FormStep({ view, onChange, onSubmit }: { view: ApplicationView; 
       </Section>
     </div>
     <aside className="op-workspace-side">
-      <Section title="Готовность анкеты">
-        <ProgressBar value={view.readiness.completeness} label="Полнота анкеты" />
-        <p className="op-muted">Заполнено {Math.round(view.readiness.completeness * 100)}% · полнота учитывается в оценке</p>
-        <ul className="op-checklist">{(Object.keys(groupTitles) as ReadinessGroup[]).map((group) => {
-          const items = view.readiness.items.filter((i) => i.group === group);
-          if (!items.length) return null;
-          return <li key={group} data-done={missingIn(group) === 0}>
-            <strong>{groupTitles[group]}</strong>
-            <ul>{items.map((item) => <li key={item.code} data-done={item.done} data-required={item.required}>
-              <span aria-hidden="true">{item.done ? '✓' : item.required ? '•' : '○'}</span><span>{item.label}{!item.required && !item.done && <small> (желательно)</small>}</span>
-            </li>)}</ul>
-          </li>;
-        })}</ul>
+      <section className="op-card op-readiness" data-ready={summary.ready} aria-live="polite">
+        <header className="op-readiness-head">
+          <CircularProgressBar value={Math.round(summary.requiredDone / Math.max(1, summary.requiredTotal) * 100)} size={80}
+            view="positive" title={`${summary.requiredDone}/${summary.requiredTotal}`} />
+          <div>
+            <h2>{summary.headline}</h2>
+            <p>{summary.detail}</p>
+          </div>
+        </header>
+        {summary.missingRequired.length > 0 && <ul className="op-todo" aria-label="Не заполнено">{summary.missingRequired.map((item) =>
+          <li key={item.code}><button type="button" onClick={() => { setAttempted(true); focusField(fieldIdOf(item.code)); }}>
+            <ExclamationCircleMIcon aria-hidden="true" /><span>{itemTitle(item, fields.description).replace(/^./, (c) => c.toUpperCase())}</span><ArrowRightMIcon aria-hidden="true" />
+          </button></li>)}</ul>}
+        {summary.missingOptional.length > 0 && <div className="op-optional">
+          <span className="op-muted op-small">Желательно — повысит полноту и оценку:</span>
+          <ul className="op-todo op-todo-optional">{summary.missingOptional.map((item) =>
+            <li key={item.code}><button type="button" onClick={() => focusField(fieldIdOf(item.code))}>
+              <span>{itemTitle(item).replace(/^./, (c) => c.toUpperCase())}</span><ArrowRightMIcon aria-hidden="true" /></button></li>)}</ul>
+        </div>}
+        <div className="op-completeness">
+          <div className="op-row"><span className="op-small">Полнота анкеты для оценки</span><strong>{Math.round(view.readiness.completeness * 100)}%</strong></div>
+          <ProgressBar value={view.readiness.completeness} label="Полнота анкеты" view={summary.ready ? 'positive' : 'attention'} />
+          <span className="op-muted op-small">Учитывает и желательные пункты: {summary.optionalDone} из {summary.optionalTotal} заполнено. Отправить можно, когда заполнены все обязательные.</span>
+        </div>
+        <details className="op-details">
+          <summary>Все пункты по группам</summary>
+          <ul className="op-checklist">{(Object.keys(groupTitles) as ReadinessGroup[]).map((group) => {
+            const items = view.readiness.items.filter((i) => i.group === group);
+            if (!items.length) return null;
+            return <li key={group}>
+              <strong>{groupTitles[group]}</strong>
+              <ul>{items.map((item) => <li key={item.code} data-done={item.done} data-required={item.required}>
+                <span aria-hidden="true">{item.done ? '✓' : item.required ? '•' : '○'}</span><span>{item.label}{!item.required && !item.done && <small> (желательно)</small>}</span>
+              </li>)}</ul>
+            </li>;
+          })}</ul>
+        </details>
         {company.isSynthetic && <button type="button" className="op-link" disabled={!!busy} onClick={() => void fillDemo()}>Заполнить демо-данными</button>}
-        <Button view="accent" size={56} block className="op-submit" disabled={!!busy || !canSubmit} loading={busy === 'save'} onClick={() => void submit()}>
-          Отправить на рассмотрение</Button>
-        {!canSubmit && <p className="op-muted">{app.state === 'NEEDS_INFO' ? 'Дополните анкету по списку в начале страницы — после этого её можно отправить снова.'
-          : 'Чтобы отправить анкету, заполните обязательные пункты.'}</p>}
-      </Section>
+        <Button view="accent" size={56} block className="op-submit" disabled={!!busy} loading={busy === 'save'} onClick={() => void submit()}
+          rightAddons={<ArrowRightMIcon />}>Отправить на рассмотрение</Button>
+        {!ready && attempted && localErrors.length + summary.missingRequired.length > 0 && <p className="op-field-error" role="alert">
+          {localErrors.length ? `Исправьте ${localErrors.length} ${plural(localErrors.length, 'поле', 'поля', 'полей')} — они подсвечены в анкете.` : 'Заполните отмеченные пункты.'}</p>}
+        {app.state === 'NEEDS_INFO' && <p className="op-muted op-small">Дополните анкету по списку в начале страницы — после этого её можно отправить снова.</p>}
+      </section>
     </aside>
   </div>;
 }

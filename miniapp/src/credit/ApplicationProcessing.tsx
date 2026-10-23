@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { creditApi, type ApplicationView, type ProcessedView } from './api';
 import { ErrorNote, Section } from './ui';
+import { ClockMIcon } from '@alfalab/icons-glyph/ClockMIcon';
+import { CheckmarkMIcon } from '@alfalab/icons-glyph/CheckmarkMIcon';
 import { errorMessage } from './format';
 import type { ApplicationState } from '../../api-server/credit/types';
 
@@ -58,13 +60,13 @@ export function ApplicationProcessing({ view, onDone }: { view: ApplicationView;
   }, [attempt, view.application.id, view.application.state, onDone]);
 
   const run = result ? latestRun(result) : { stages: processingStages.length, checks: [] };
-  return <Section title="Рассматриваем заявку" className="op-processing">
-    <p className="op-muted">Обычно это занимает несколько секунд. Можно не закрывать страницу.</p>
+  return <Section title="Рассматриваем заявку" icon={ClockMIcon} className="op-processing"
+    description="Обычно это занимает несколько секунд. Можно не закрывать страницу.">
     <ol className="op-timeline" aria-live="polite">
       {processingStages.slice(0, Math.max(run.stages, 1)).map((stage, index) => {
         const state = index < shown ? 'done' : index === shown ? 'active' : 'todo';
         return <li key={stage.state} data-state={state}>
-          <span className="op-timeline-dot" aria-hidden="true">{state === 'done' ? '✓' : state === 'active' ? <span className="op-spinner" /> : index + 1}</span>
+          <span className="op-timeline-dot" aria-hidden="true">{state === 'done' ? <CheckmarkMIcon /> : state === 'active' ? <span className="op-spinner" /> : index + 1}</span>
           <div>
             <strong>{stage.title}</strong>
             <span className="op-muted">{stage.detail}</span>

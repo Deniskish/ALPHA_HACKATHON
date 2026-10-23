@@ -9,8 +9,8 @@ MVP. Полные тексты лицензий находятся в соотв
 | Компонент | Версия | Лицензия | Назначение |
 |---|---|---|---|
 | react, react-dom | 18.3.1 | MIT | UI |
-| @alfalab/core-components-* (button, input, textarea, select, radio, radio-group, tag, steps, tabs, status, tooltip, progress-bar, config, stack-context и их зависимости) | 13.x и др. по `package-lock.json` | MIT | Дизайн-система Альфа-Банка (открытая, github.com/core-ds/core-components) |
-| @fontsource-variable/manrope | 5.3.0 | SIL Open Font License 1.1 | Шрифт Manrope |
+| @alfalab/core-components-* (button, input, textarea, select, radio, radio-group, tag, steps, tabs, status, tooltip, progress-bar, typography, plate, amount, table, segmented-control, icon-view, circular-progress-bar, badge, link, divider, skeleton, gap, vars, config, stack-context и их зависимости) | по `package-lock.json` | MIT | Дизайн-система Альфа-Банка (открытая, github.com/core-ds/core-components): компоненты и токены |
+| @alfalab/icons-glyph | 2.x | MIT | Иконки Alfa |
 | pdfjs-dist | 6.3.289 | Apache-2.0 | Чтение PDF в браузере |
 | mammoth | 1.12.3 | BSD-2-Clause | Чтение DOCX в браузере |
 | tesseract.js (и tesseract.js-core) | 7.0.0 | Apache-2.0 | Распознавание сканов в браузере |

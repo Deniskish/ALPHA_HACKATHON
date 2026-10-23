@@ -4,8 +4,15 @@ import { Button } from '@alfalab/core-components-button';
 import { Input } from '@alfalab/core-components-input';
 import { Select } from '@alfalab/core-components-select';
 import { creditApi, type CompanyView, type ManualCompany } from './api';
-import { ErrorNote, Facts, Loading, Section, SyntheticBadge } from './ui';
-import { businessAgeMonths, errorMessage, formatAge, formatDate, formatRub } from './format';
+import { companyInitial, ErrorNote, Facts, flowSteps, HeroMark, IconTile, Loading, Money, Note, OutcomeBadge, Section, SyntheticBadge } from './ui';
+import { BankMIcon } from '@alfalab/icons-glyph/BankMIcon';
+import { OfficeMIcon } from '@alfalab/icons-glyph/OfficeMIcon';
+import { ArrowRightMIcon } from '@alfalab/icons-glyph/ArrowRightMIcon';
+import { CheckmarkCircleMIcon } from '@alfalab/icons-glyph/CheckmarkCircleMIcon';
+import { InformationCircleMIcon } from '@alfalab/icons-glyph/InformationCircleMIcon';
+import { MagnifierMIcon } from '@alfalab/icons-glyph/MagnifierMIcon';
+import { UserMIcon } from '@alfalab/icons-glyph/UserMIcon';
+import { businessAgeMonths, errorMessage, formatAge, formatDate } from './format';
 import { setSession } from './session';
 import { validInn } from '../../api-server/company-data/inn';
 
@@ -14,26 +21,52 @@ const nonClientHints = [['0005000050', 'кофейня, вторая точка'
 
 export function StartScreen() {
   const [path, setPath] = useState<Path>(null);
+  const choose = (next: Path) => { setPath(next); requestAnimationFrame(() => document.getElementById('start-next')?.scrollIntoView({ behavior: 'smooth', block: 'start' })); };
   return <div className="op-page op-start">
-    <section className="op-hero">
-      <h1>Финансирование для вашего бизнеса</h1>
-      <p>Опишите задачу — «Опора» подберёт кредит, проверит заявку и объяснит решение. Пять понятных шагов: потребность, подбор, анкета,
-        рассмотрение и решение.</p>
+    <section className="op-hero op-hero-start">
+      <div className="op-hero-copy">
+        <span className="op-eyebrow">Финансирование для действующего бизнеса</span>
+        <h1>Деньги на развитие.<br />Без загадок.</h1>
+        <p>Расскажите, что нужно бизнесу. «Опора» подберёт кредит, покажет ставку и платёж ещё до заявки
+          и объяснит решение банка.</p>
+        <ol className="op-hero-steps" aria-label="Пять шагов">{flowSteps.map((step, i) => <li key={step}><span>{i + 1}</span>{step}</li>)}</ol>
+      </div>
+      <div className="op-hero-visual" aria-hidden="true">
+        <HeroMark />
+        <div className="op-float-card op-float-card-rate">
+          <small>Ставка видна сразу</small>
+          <strong>16% + маржа + риск</strong>
+        </div>
+        <div className="op-float-card op-float-card-decision">
+          <CheckmarkCircleMIcon />
+          <span><small>Решение с причинами</small><strong>и сценариями улучшения</strong></span>
+        </div>
+      </div>
     </section>
     <div className="op-choice" role="group" aria-label="Кто вы">
-      <button type="button" className="op-choice-card" aria-pressed={path === 'client'} onClick={() => setPath('client')}>
-        <strong>Я клиент Альфа-Банка</strong>
-        <span>Данные о компании, оборотах и продуктах банка подставятся автоматически</span>
+      <button type="button" className="op-choice-card" aria-pressed={path === 'client'} onClick={() => choose('client')}>
+        <IconTile icon={BankMIcon} tone={path === 'client' ? 'accent' : 'neutral'} size={56} />
+        <span className="op-choice-text">
+          <strong>Я клиент Альфа-Банка</strong>
+          <span>Данные о компании, оборотах и продуктах подставятся автоматически — анкета почти заполнена</span>
+        </span>
+        <ArrowRightMIcon className="op-choice-arrow" aria-hidden="true" />
       </button>
-      <button type="button" className="op-choice-card" aria-pressed={path === 'non_client'} onClick={() => setPath('non_client')}>
-        <strong>Я пока не клиент Альфа-Банка</strong>
-        <span>Найдём компанию по ИНН, вы подтвердите сведения и добавите финансовые показатели</span>
+      <button type="button" className="op-choice-card" aria-pressed={path === 'non_client'} onClick={() => choose('non_client')}>
+        <IconTile icon={OfficeMIcon} tone={path === 'non_client' ? 'accent' : 'neutral'} size={56} />
+        <span className="op-choice-text">
+          <strong>Я пока не клиент Альфа-Банка</strong>
+          <span>Найдём компанию по ИНН, вы подтвердите сведения и добавите ключевые показатели</span>
+        </span>
+        <ArrowRightMIcon className="op-choice-arrow" aria-hidden="true" />
       </button>
     </div>
-    <p className="op-disclaimer" role="note">Демонстрационный сценарий: реальной авторизации и данных Альфа-Банка нет. Компании и сведения о них
-      синтетические. Рассматривается только действующий бизнес — ИП, ООО и другие формы.</p>
-    {path === 'client' && <ClientLogin />}
-    {path === 'non_client' && <NonClientLookup />}
+    <p className="op-disclaimer" role="note"><InformationCircleMIcon aria-hidden="true" />Демонстрационный сценарий: реальной авторизации и данных Альфа-Банка нет.
+      Компании и сведения о них синтетические. Рассматривается только действующий бизнес — ИП, ООО и другие формы.</p>
+    <div id="start-next">
+      {path === 'client' && <ClientLogin />}
+      {path === 'non_client' && <NonClientLookup />}
+    </div>
   </div>;
 }
 
@@ -46,17 +79,21 @@ function ClientLogin() {
       .catch((e) => { if (e.name !== 'AbortError') setError(errorMessage(e)); });
     return () => controller.abort();
   }, []);
-  return <Section title="Вход в демо-кабинет клиента" aside={<SyntheticBadge />}>
-    <p className="op-muted">Выберите компанию — как будто вы вошли в интернет-банк. Каждая воспроизводит свой сценарий решения.</p>
+  return <Section title="Вход в демо-кабинет клиента" icon={UserMIcon} aside={<SyntheticBadge />}
+    description="Выберите компанию — как будто вы вошли в интернет-банк. Каждая воспроизводит свой сценарий решения.">
     {error && <ErrorNote error={error} />}
     {!companies && !error && <Loading text="Загружаем компании…" />}
     <div className="op-company-grid">{companies?.map((company) => <article key={company.inn} className="op-company-card" data-scenario={company.demo?.scenario}>
-      <span className="op-eyebrow">{company.demo?.title}</span>
+      <header>
+        <span className="op-company-avatar" aria-hidden="true">{companyInitial(company.name)}</span>
+        {company.demo && <OutcomeBadge outcome={company.demo.scenario} />}
+      </header>
       <h3>{company.name}</h3>
-      <p className="op-muted">ИНН {company.inn} · {company.region}</p>
-      {company.bankProfile && <p>Обороты по счёту ≈ {formatRub(company.bankProfile.monthlyTurnover)} в месяц</p>}
-      <p className="op-muted">{company.demo?.description}</p>
-      <Button view="secondary" size={40} block aria-label={`Войти как ${company.name}`}
+      <p className="op-muted op-small">ИНН {company.inn} · {company.region}</p>
+      {company.bankProfile && <p className="op-company-turnover"><span className="op-muted op-small">Обороты по счёту в месяц</span>
+        <Money value={company.bankProfile.monthlyTurnover} bold /></p>}
+      <p className="op-muted op-small">{company.demo?.description}</p>
+      <Button view="primary" size={48} block aria-label={`Войти как ${company.name}`}
         onClick={() => setSession({ relationship: 'client', company, manual: null })}>Войти</Button>
     </article>)}</div>
   </Section>;
@@ -76,7 +113,7 @@ function NonClientLookup() {
     }
   };
   const company = state.company;
-  return <Section title="Компания по ИНН">
+  return <Section title="Компания по ИНН" icon={MagnifierMIcon} description="Сведения проверим по реестру (в демо — синтетическому), вам останется подтвердить их.">
     <form className="op-inline-form" onSubmit={find}>
       <Input label="ИНН компании или ИП" inputMode="numeric" maxLength={12} block value={inn}
         onChange={(_, { value }) => setInn(value.replace(/\D/g, ''))} hint="Демо: 0005000050 — кофейня, 0006000060 — молодой бизнес" />
@@ -84,14 +121,14 @@ function NonClientLookup() {
     </form>
     <div className="op-chips">{nonClientHints.map(([value, label]) =>
       <button key={value} type="button" className="op-chip" onClick={() => setInn(value)}>{value} · {label}</button>)}</div>
-    {state.error && <p className={state.manual ? 'op-alert op-alert-info' : 'op-alert op-alert-danger'} role="status">{state.error}</p>}
+    {state.error && (state.manual ? <Note view="attention" title={state.error} /> : <ErrorNote error={state.error} />)}
     {company && <div className="op-confirm">
       <h3>Проверьте сведения о компании</h3>
       {company.isSynthetic && <SyntheticBadge text="Синтетический реестр (mock ФНС)" />}
       <Facts items={[['Название', company.name], ['ИНН', company.inn],
         ['Регистрация', `${formatDate(company.registrationDate)}${company.registrationDate ? ` · ${formatAge(businessAgeMonths(company.registrationDate, new Date()) ?? 0)}` : ''}`],
         ['ОКВЭД', `${company.okved}${company.okvedTitle ? ` — ${company.okvedTitle}` : ''}`], ['Регион', company.region]]} />
-      {company.relationship === 'client' && <p className="op-alert op-alert-info">Эта компания — клиент банка в демо-данных: сведения подставятся автоматически.</p>}
+      {company.relationship === 'client' && <Note title="Эта компания — клиент банка в демо-данных: сведения подставятся автоматически." />}
       <Button view="accent" size={48} onClick={() => setSession({ relationship: company.relationship, company, manual: null })}>Данные верны, продолжить</Button>
     </div>}
     {state.manual && <ManualCompanyForm inn={inn} />}
@@ -129,7 +166,7 @@ function ManualCompanyForm({ inn }: { inn: string }) {
     <Input label="Дата регистрации" inputMode="numeric" placeholder="ДД.ММ.ГГГГ" block value={form.registrationDate} onChange={set('registrationDate')} maxLength={10} />
     <Input label="Основной ОКВЭД" block value={form.okved} onChange={set('okved')} maxLength={8} hint="Например, 62.01" />
     <Input label="Регион" block value={form.region} onChange={set('region')} maxLength={100} />
-    {error && <p className="op-alert op-alert-danger op-span-all" role="alert">{error}</p>}
+    {error && <div className="op-span-all"><ErrorNote error={error} /></div>}
     <Button view="accent" size={48} type="submit">Продолжить</Button>
   </form>;
 }

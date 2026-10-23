@@ -83,7 +83,7 @@ flowchart LR
 
 | Слой | Технологии |
 |---|---|
-| Frontend | React 18, TypeScript, Vite 5, `@alfalab/core-components` (Button, Input, Select, Textarea, RadioGroup, Tag, Steps, Tabs, Status, Tooltip, ProgressBar), чтение PDF/DOCX/сканов в браузере (pdf.js, mammoth, tesseract.js) |
+| Frontend | React 18, TypeScript, Vite 5, `@alfalab/core-components` (Button, Input, Select, Textarea, RadioGroup, Tag, Steps, Tabs, Table, SegmentedControl, Status, Plate, Amount, Typography, Tooltip, Progress) и токены `core-components-vars`, иконки `@alfalab/icons-glyph`; из своего — только логотип «Опоры», чтение PDF/DOCX/сканов в браузере (pdf.js, mammoth, tesseract.js) |
 | API | Node.js 22, Express 4, TypeScript, встроенный `node:sqlite` |
 | ML (офлайн) | Python, numpy, pandas, scikit-learn, LightGBM; модель экспортируется в JSON и исполняется в TypeScript с точным TreeSHAP |
 | LLM (опционально) | Ollama + `qwen2.5:7b-instruct` (Apache-2.0) через OpenAI-совместимый API |
@@ -160,7 +160,7 @@ python generate_dataset.py && python train.py && python evaluate.py && python in
 
 ## Демо-сценарии
 
-Роли переключаются в шапке: **«Клиент» / «Банковская сторона»** (без авторизации).
+Две отдельные оболочки над одной заявкой: **клиентский кабинет** (`#/`, `#/credit/…`) и **рабочее место банка** (`#/bank/…`, ссылка «Рабочее место банка» в шапке). Без авторизации.
 
 | | Компания (ИНН) | Вход | Потребность | Результат |
 |---|---|---|---|---|
@@ -181,7 +181,7 @@ python generate_dataset.py && python train.py && python evaluate.py && python in
 4. **Анкета**: «Заполнить демо-данными» → «Отправить на рассмотрение».
 5. **Рассмотрение** → **Решение**: «Заявка одобрена» с причинами и объяснением → «Принять» → «Подписать (симуляция)» →
    «Получить финансирование (симуляция)» → «Смоделировать очередной платёж», «Следующие возможности».
-6. «Банковская сторона» → заявка: путь APPLICATION RECEIVED → … → RESULT, mock-проверки, ML-риск с факторами,
+6. «Рабочее место банка» → KPI, фильтры, таблица → заявка: путь APPLICATION RECEIVED → … → RESULT, mock-проверки, ML-риск с факторами,
    скоринг, решение, история переходов.
 7. Повторите для B (блок «Как улучшить заявку»), D и не клиента E: «Я пока не клиент» → ИНН `0005000050`.
 

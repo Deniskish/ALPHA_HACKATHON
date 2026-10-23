@@ -1,7 +1,6 @@
-/* Typography and safe areas; the palette of «Опора» lives in credit.css. */
+/* Alfa system font stack (Alfa's brand fonts are proprietary and not shipped); safe areas. */
 :root {
-  --font-ui: "Manrope Variable", Manrope, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
-  font-family: var(--font-ui);
+  font-family: var(--font-family-system);
   font-synthesis: none;
   -webkit-font-smoothing: antialiased;
   --app-safe-top: env(safe-area-inset-top, 0px);

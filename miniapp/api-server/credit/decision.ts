@@ -103,7 +103,7 @@ export class CreditDecisionEngine {
     const own = terms(product);
     if (own && !medium && own.amount === amount && own.termMonths === term) return {
       outcome: 'APPROVED', offer: own, requiredInfo: [], reasons,
-      summary: `Мы готовы выдать ${formatRub(amount)} на ${months(term)} по ставке ${own.rate}% годовых.`,
+      summary: `Мы готовы выдать ${formatRub(amount)} на ${months(term)} по ставке ${String(own.rate).replace(".", ",")}% годовых.`,
       nextAction: 'Примите предложение, чтобы перейти к подписанию договора.',
     };
     const offer = own ?? input.products

@@ -2,7 +2,13 @@
 import { useEffect, useState } from 'react';
 import { Button } from '@alfalab/core-components-button';
 import { creditApi, type ApplicationView, type MatchesView } from './api';
-import { ErrorNote, Facts, Loading, Section, SyntheticBadge } from './ui';
+import { ErrorNote, Facts, formatPercent, IconTile, Loading, Money, Note, Rate, Section, SyntheticBadge } from './ui';
+import { purposeIcons } from './purpose-icons';
+import { CheckmarkMIcon } from '@alfalab/icons-glyph/CheckmarkMIcon';
+import { CrossMIcon } from '@alfalab/icons-glyph/CrossMIcon';
+import { ExclamationCircleMIcon } from '@alfalab/icons-glyph/ExclamationCircleMIcon';
+import { ArrowRightMIcon } from '@alfalab/icons-glyph/ArrowRightMIcon';
+import { MagnifierMIcon } from '@alfalab/icons-glyph/MagnifierMIcon';
 import { errorMessage, formatRub, months } from './format';
 import { navigate } from './routes';
 import { purposeLabels } from '../../api-server/credit/labels';
@@ -30,12 +36,12 @@ export function MatchStep({ view, onChange }: { view: ApplicationView; onChange:
   };
   const facts = data?.facts;
   return <div className="op-stack">
-    <Section title="Что мы учли при подборе" aside={<SyntheticBadge text="Продукты и ставки синтетические" />}>
+    <Section title="Что мы учли при подборе" icon={MagnifierMIcon} aside={<SyntheticBadge text="Продукты и ставки синтетические" />}>
       <p className="op-need-summary">{app.purpose ? purposeLabels[app.purpose] : '—'} · <strong>{app.requestedAmount ? formatRub(app.requestedAmount) : '—'}</strong>
         {app.requestedTermMonths ? ` на ${months(app.requestedTermMonths)}` : ''}
         <button type="button" className="op-link" onClick={() => navigate({ name: 'application', id: app.id, stage: 'need' })}>Изменить</button></p>
       {facts && <Facts items={[
-        ['Ключевая ставка (демо)', `${data!.keyRate}%`],
+        ['Ключевая ставка (демо)', formatPercent(data!.keyRate)],
         ['Финансы', facts.financeSource === 'bank' ? 'по данным банка' : facts.financeSource === 'declared' ? 'по вашим данным' : 'нет данных — уточним в анкете'],
         ['Выручка / прибыль', facts.revenue !== null ? `${formatRub(facts.revenue)} / ${formatRub(facts.profit ?? 0)}` : '—'],
         ['Текущие долги', facts.debt !== null ? formatRub(facts.debt) : '—'],
@@ -46,7 +52,7 @@ export function MatchStep({ view, onChange }: { view: ApplicationView; onChange:
     </Section>
     {error && <ErrorNote error={error} />}
     {!data && !error && <Loading text="Подбираем финансирование…" />}
-    {data && !data.matches.some((m) => m.eligible) && <p className="op-alert op-alert-info">Ни один продукт не подходит под эти параметры. Измените сумму, срок или цель.</p>}
+    {data && !data.matches.some((m) => m.eligible) && <Note view="attention" title="Ни один продукт не подходит под эти параметры. Измените сумму, срок или цель." />}
     <div className="op-products">{data?.matches.map((match) => <ProductCard key={match.product.id} match={match} selected={app.productId === match.product.id}
       disabled={!view.status.editable || !!choosing} busy={choosing === match.product.id} onChoose={() => void choose(match.product.id)} />)}</div>
   </div>;
@@ -56,29 +62,33 @@ function ProductCard({ match, selected, disabled, busy, onChoose }: { match: Pro
   const { product, pricing, eligible } = match;
   return <article className="op-product" data-eligible={eligible} data-recommended={match.recommended} data-product={product.id}>
     <header>
-      <h3>{product.name}</h3>
-      {match.recommended && <span className="op-pill op-pill-accent">Рекомендуем</span>}
-      {selected && <span className="op-pill">Выбран</span>}
+      <IconTile icon={purposeIcons[product.purposes[0]]} tone={match.recommended ? 'inverted' : 'neutral'} size={48} />
+      <div className="op-product-title">
+        {match.recommended && <span className="op-pill op-pill-accent">Рекомендуем</span>}
+        <h3>{product.name}</h3>
+        <span className="op-product-range"><Money value={product.minAmount} /> – <Money value={product.maxAmount} /> · до {months(product.maxTermMonths)}</span>
+      </div>
+      {selected && !match.recommended && <span className="op-pill">Выбран</span>}
     </header>
-    <p className="op-muted">{product.description}</p>
+    <p className="op-product-description">{product.description}</p>
     <div className="op-price">
-      <div><span className="op-muted">Ставка</span><strong>{pricing.rate}%</strong>
-        <small>{pricing.keyRate}% ключевая + {pricing.productMargin} маржа{pricing.riskPremium ? ` + ${pricing.riskPremium} риск` : ''}</small></div>
-      <div><span className="op-muted">Платёж в месяц</span><strong>{match.estimatedMonthlyPayment ? formatRub(match.estimatedMonthlyPayment) : '—'}</strong>
-        <small>{affordabilityText[match.affordability.status]}</small></div>
-      <div><span className="op-muted">Переплата</span><strong>{match.totalCost ? formatRub(match.totalCost) : '—'}</strong><small>ориентировочно</small></div>
+      <div className="op-price-rate"><span className="op-price-label">Ставка</span><Rate rate={pricing.rate} pricing={pricing} /></div>
+      <div><span className="op-price-label">Платёж в месяц</span><strong>{match.estimatedMonthlyPayment ? <Money value={match.estimatedMonthlyPayment} /> : '—'}</strong>
+        <small data-status={match.affordability.status}>{affordabilityText[match.affordability.status]}</small></div>
+      <div><span className="op-price-label">Переплата</span><strong>{match.totalCost ? <Money value={match.totalCost} /> : '—'}</strong><small>ориентировочно</small></div>
     </div>
     <h4>{eligible ? 'Почему подходит' : 'Почему не подходит'}</h4>
-    <ul className="op-checks">{match.checks.map((check) => <li key={check.code} data-ok={check.ok}><span aria-hidden="true">{check.ok ? '✓' : '✕'}</span>{check.text}</li>)}
-      {eligible && match.fitReasons.slice(match.checks.length).map((reason) => <li key={reason} data-ok="true"><span aria-hidden="true">✓</span>{reason}</li>)}</ul>
-    {match.risks.length > 0 && <><h4>Риски</h4><ul className="op-plain">{match.risks.map((risk) => <li key={risk}>⚠ {risk}</li>)}</ul></>}
-    {match.alternatives.length > 0 && <><h4>Альтернативы</h4><ul className="op-plain">{match.alternatives.map((alt) => <li key={alt}>→ {alt}</li>)}</ul></>}
+    <ul className="op-checks">{match.checks.map((check) => <li key={check.code} data-ok={check.ok}>{check.ok ? <CheckmarkMIcon aria-hidden="true" /> : <CrossMIcon aria-hidden="true" />}{check.text}</li>)}
+      {eligible && match.fitReasons.slice(match.checks.length).map((reason) => <li key={reason} data-ok="true"><CheckmarkMIcon aria-hidden="true" />{reason}</li>)}</ul>
+    {match.risks.length > 0 && <><h4>Риски</h4><ul className="op-checks">{match.risks.map((risk) => <li key={risk} data-ok="warn"><ExclamationCircleMIcon aria-hidden="true" />{risk}</li>)}</ul></>}
+    {match.alternatives.length > 0 && <><h4>Альтернативы</h4><ul className="op-checks">{match.alternatives.map((alt) => <li key={alt} data-ok="alt"><ArrowRightMIcon aria-hidden="true" />{alt}</li>)}</ul></>}
     <details className="op-details">
       <summary>Какие данные использованы и ограничения</summary>
       <ul className="op-plain">{match.dataUsed.map((item) => <li key={item}>{item}</li>)}</ul>
       <ul className="op-plain">{match.constraints.map((item) => <li key={item}>{item}</li>)}</ul>
     </details>
-    <Button view={match.recommended ? 'accent' : 'secondary'} size={48} block disabled={!eligible || disabled} loading={busy} onClick={onChoose}>
+    <Button view={match.recommended ? 'accent' : 'secondary'} size={56} block disabled={!eligible || disabled} loading={busy} onClick={onChoose}
+      rightAddons={eligible ? <ArrowRightMIcon /> : undefined}>
       {eligible ? (selected ? 'Продолжить с этим продуктом' : 'Выбрать продукт') : 'Недоступен'}</Button>
   </article>;
 }

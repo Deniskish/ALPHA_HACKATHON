@@ -1,8 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@alfalab/core-components-button';
+import { ArrowRightMIcon } from '@alfalab/icons-glyph/ArrowRightMIcon';
+import { DocumentLinesMIcon } from '@alfalab/icons-glyph/DocumentLinesMIcon';
+import { CashMoneyMIcon } from '@alfalab/icons-glyph/CashMoneyMIcon';
+import { ClockMIcon } from '@alfalab/icons-glyph/ClockMIcon';
 import { creditApi, type ApplicationSummary } from './api';
-import { ErrorNote, Facts, Loading, Section, StatusBadge, SyntheticBadge } from './ui';
-import { errorMessage, formatDate, formatRub, months } from './format';
+import { ErrorNote, Facts, HeroMark, Loading, Logo, Money, Section, StatusBadge, SyntheticBadge } from './ui';
+import { errorMessage, formatDate, months } from './format';
 import { navigate } from './routes';
 import type { DemoSession } from './session';
 import type { ApplicationState } from '../../api-server/credit/types';
@@ -12,11 +16,11 @@ const resultStates: ApplicationState[] = ['APPROVED', 'COUNTER_OFFER', 'NEEDS_IN
 
 export function ApplicationCard({ app }: { app: ApplicationSummary }) {
   return <button type="button" className="op-application-card" onClick={() => navigate({ name: 'application', id: app.id })}>
-    <span className="op-row"><span className="op-muted">{app.number}</span><StatusBadge state={app.state} /></span>
-    <strong>{app.requestedAmount ? formatRub(app.requestedAmount) : 'Сумма не указана'}
+    <span className="op-row"><span className="op-muted op-small">{app.number}</span><StatusBadge state={app.state} /></span>
+    <strong className="op-application-amount">{app.requestedAmount ? <Money value={app.requestedAmount} /> : 'Сумма не указана'}
       {app.requestedTermMonths ? <span className="op-muted"> · {months(app.requestedTermMonths)}</span> : null}</strong>
     <span>{app.productName ?? 'Продукт ещё не выбран'}</span>
-    <span className="op-next"><span className="op-muted">Следующий шаг:</span> {app.status.next}</span>
+    <span className="op-next"><ArrowRightMIcon aria-hidden="true" />{app.status.next}</span>
   </button>;
 }
 
@@ -36,35 +40,47 @@ export function CreditDashboard({ session }: { session: DemoSession }) {
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, 5) ?? [];
   const bank = company.bankProfile;
   return <div className="op-page">
-    <section className="op-hero op-hero-compact">
-      <div>
+    <section className="op-hero op-hero-company">
+      <div className="op-hero-copy">
         <span className="op-eyebrow">{session.relationship === 'client' ? 'Клиент банка · демо' : 'Пока не клиент банка · демо'}</span>
-        <h1>{company.name}</h1>
-        <p>Опишите, на что нужны деньги, — подберём финансирование и покажем решение с понятными причинами.</p>
-        <Button view="accent" size={56} onClick={() => navigate({ name: 'new' })}>Получить финансирование</Button>
+        <h1>Чем помочь бизнесу?</h1>
+        <p>Опишите задачу своими словами — подберём финансирование, покажем ставку и платёж до подачи заявки и объясним решение.</p>
+        <div className="op-hero-actions">
+          <Button view="accent" size={56} onClick={() => navigate({ name: 'new' })} rightAddons={<ArrowRightMIcon />}>Получить финансирование</Button>
+          <span className="op-hero-hint">5 шагов · решение за минуты</span>
+        </div>
       </div>
-      <div className="op-hero-facts">
-        {company.isSynthetic && <SyntheticBadge />}
-        <Facts items={[['ИНН', company.inn], ['Регион', company.region], ['ОКВЭД', company.okvedTitle ?? company.okved],
-          ...(bank ? [['Клиент с', formatDate(bank.clientSince)], ['Обороты по счёту', `≈ ${formatRub(bank.monthlyTurnover)} в месяц`],
-            ['Продукты банка', bank.products.join(', ')], ['Счёт', bank.accountMasked]] as [string, string][] : [])]} />
-      </div>
+      <article className="op-business-card" aria-label={`Профиль компании ${company.name}`}>
+        <HeroMark className="op-business-card-mark" />
+        <header><Logo variant="silver" height={18} /><span>{bank ? 'Бизнес-счёт' : 'Профиль компании'}</span></header>
+        <strong className="op-business-card-name">{company.name}</strong>
+        <span className="op-business-card-inn">ИНН {company.inn}</span>
+        {bank ? <div className="op-business-card-turnover"><small>Обороты по счёту в месяц</small><Money value={bank.monthlyTurnover} bold /></div>
+          : <div className="op-business-card-turnover"><small>Данные о компании</small><span>из реестра — подтверждены вами</span></div>}
+        <footer><span>{bank ? bank.accountMasked : company.region}</span><span>{bank ? `клиент с ${formatDate(bank.clientSince)}` : 'не клиент банка'}</span></footer>
+      </article>
     </section>
+    <Section title="Профиль бизнеса" aside={company.isSynthetic ? <SyntheticBadge /> : undefined}>
+      <Facts items={[['Регион', company.region], ['Деятельность', company.okvedTitle ?? company.okved], ['Регистрация', formatDate(company.registrationDate)],
+        ...(company.employees !== null ? [['Сотрудников', String(company.employees)]] as [string, string][] : []),
+        ...(bank ? [['Продукты банка', bank.products.join(', ')]] as [string, string][] : [])]} />
+    </Section>
     {error && <ErrorNote error={error} onRetry={() => load()} />}
     {!apps && !error && <Loading text="Загружаем заявки…" />}
     {apps && <div className="op-grid-2">
-      <Section title="Активные заявки" aside={<span className="op-muted">{active.length}</span>}>
+      <Section title="Активные заявки" icon={DocumentLinesMIcon} aside={<span className="op-count">{active.length}</span>}>
         {active.length ? <div className="op-list">{active.map((app) => <ApplicationCard key={app.id} app={app} />)}</div>
           : <p className="op-empty">Активных заявок нет. Нажмите «Получить финансирование», чтобы начать.</p>}
       </Section>
       <div className="op-stack">
-        {financed.length > 0 && <Section title="Действующее финансирование">
+        {financed.length > 0 && <Section title="Действующее финансирование" icon={CashMoneyMIcon}>
           <div className="op-list">{financed.map((app) => <ApplicationCard key={app.id} app={app} />)}</div>
         </Section>}
-        <Section title="Последние результаты">
+        <Section title="Последние результаты" icon={ClockMIcon}>
           {results.length ? <ul className="op-results">{results.map((app) => <li key={app.id}>
             <button type="button" onClick={() => navigate({ name: 'application', id: app.id })}>
-              <span><strong>{app.requestedAmount ? formatRub(app.requestedAmount) : app.number}</strong><span className="op-muted">{app.number} · {formatDate(app.updatedAt)}</span></span>
+              <span><strong>{app.requestedAmount ? <Money value={app.requestedAmount} /> : app.number}</strong>
+                <span className="op-muted op-small">{app.number} · {formatDate(app.updatedAt)}</span></span>
               <StatusBadge state={app.state} />
             </button>
           </li>)}</ul> : <p className="op-empty">Здесь появятся решения по заявкам.</p>}

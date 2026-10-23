@@ -1,3 +1,10 @@
-/* Cascade: typography tokens, then the credit cabinet. */
+/* Cascade: Alfa design tokens (plain :root variables only — the typography/mixins files of the package are PostCSS mixins),
+   base tokens, then the cabinet. */
+@import '@alfalab/core-components-vars/colors-bluetint.css';
+@import '@alfalab/core-components-vars/colors-addons.css';
+@import '@alfalab/core-components-vars/shadows-bluetint.css';
+@import '@alfalab/core-components-vars/border-radius.css';
+@import '@alfalab/core-components-vars/gaps.css';
+@import '@alfalab/core-components-vars/typography-vars.css';
 @import './shared/styles/tokens.css';
 @import './credit/credit.css';

@@ -42,7 +42,7 @@ async function loginNonClient(page, inn) {
 }
 
 /** Steps 1–4: need → matching → questionnaire → review. */
-async function apply(page, { nonClient = false, text } = {}) {
+async function apply(page, { nonClient = false, text, validate = false } = {}) {
   await page.getByRole('button', { name: 'Получить финансирование' }).click();
   const steps = await page.locator('.op-steps').innerText();
   for (const step of ['Потребность', 'Подбор', 'Анкета', 'Рассмотрение', 'Решение']) assert.match(steps, new RegExp(step));
@@ -59,17 +59,39 @@ async function apply(page, { nonClient = false, text } = {}) {
   assert.match(await product.innerText(), /ключевая/);
   await noOverflow(page);
   await product.getByRole('button', { name: 'Выбрать продукт' }).click();
-  await page.getByText('Готовность анкеты').waitFor();
+  await page.locator('.op-readiness').waitFor();
   await page.locator('.op-workspace-side').getByRole('button', { name: 'Заполнить демо-данными' }).click();
-  await page.waitForFunction(() => !document.querySelector('.op-submit')?.hasAttribute('disabled'), null, { timeout: 15000 });
+  await readyToSubmit(page);
+  if (validate) await checkInlineValidation(page);
   await page.locator('.op-submit').click();
   await page.getByText('Рассматриваем заявку').waitFor();
   await page.getByText('Оцениваем риски', { exact: true }).waitFor();
 }
 
+/** The questionnaire says «Всё обязательное заполнено» and the submit button is not busy. */
+async function readyToSubmit(page) {
+  await page.waitForFunction(() => document.querySelector('.op-readiness')?.getAttribute('data-ready') === 'true'
+    && !document.querySelector('.op-submit')?.hasAttribute('disabled'), null, { timeout: 15000 });
+}
+
 async function resultOf(page) {
-  await page.waitForFunction(() => document.querySelector('.op-result[data-outcome]') || document.querySelector('.op-workspace .op-alert-warning'), null, { timeout: 20000 });
+  await page.waitForFunction(() => document.querySelector('.op-result[data-outcome]') || document.querySelector('.op-status[data-state="NEEDS_INFO"]'), null, { timeout: 20000 });
   return (await page.locator('.op-result').getAttribute('data-outcome').catch(() => null)) ?? 'NEEDS_INFO';
+}
+
+/** Anketa explains an invalid field right at the field and in the readiness block (the «90%» problem). */
+async function checkInlineValidation(page) {
+  const description = page.locator('#field-description textarea');
+  const before = await description.inputValue();
+  await description.fill('Закупка сырья');
+  await description.blur();
+  await page.getByText('Опишите цель подробнее: нужно не меньше 20 символов, сейчас 13.').waitFor();
+  await page.locator('.op-readiness').getByText('Осталось 1 обязательное поле').waitFor({ timeout: 10000 });
+  await page.locator('.op-submit').click();
+  await page.getByText(/Исправьте 1 поле/).waitFor();
+  await description.fill(before);
+  await description.blur();
+  await readyToSubmit(page);
 }
 
 async function run(engine, width, height) {
@@ -83,10 +105,11 @@ async function run(engine, width, height) {
   try {
     // A — client, APPROVED → accept → simulated signing → simulated issue → payment → next opportunities.
     await loginClient(page, 'ООО «Демо Хлебозавод»');
-    await apply(page);
+    await apply(page, { validate: true });
     assert.equal(await resultOf(page), 'APPROVED');
     await page.getByText(/Мы готовы выдать 3\s000\s000\s₽/).first().waitFor();
     await page.locator('.op-explanation').waitFor();
+    assert.match(await page.locator('.op-offer .op-rate').innerText(), /19,5% годовых\s+16% ключевая ставка \+ 3,5% маржа/);
     await noOverflow(page); await shot('a-approved');
     await page.getByRole('button', { name: 'Принять предложение' }).click();
     await page.getByRole('button', { name: 'Подписать договор (симуляция)' }).click();
@@ -119,7 +142,7 @@ async function run(engine, width, height) {
     await page.getByLabel('Текущие кредиты и займы, ₽').fill('500000');
     await page.getByLabel('Текущие кредиты и займы, ₽').blur();
     await page.locator('.op-documents li', { hasText: 'Бухгалтерская отчётность' }).getByRole('button', { name: 'Демо-файл' }).click();
-    await page.waitForFunction(() => !document.querySelector('.op-submit')?.hasAttribute('disabled'), null, { timeout: 15000 });
+    await readyToSubmit(page);
     await page.locator('.op-submit').click();
     assert.equal(await resultOf(page), 'APPROVED');
 
@@ -143,7 +166,8 @@ async function run(engine, width, height) {
     assert.match(await page.locator('.op-result-main').innerText(), /Развитие молодого бизнеса/);
 
     // Bank side: the same applications from inside, with mock checks, ML risk, scoring, decision and transitions.
-    await page.getByRole('button', { name: 'Банковская сторона' }).click();
+    await page.getByRole('link', { name: 'Рабочее место банка' }).click();
+    await page.locator('.op-kpis').waitFor();
     const rows = width >= 900 ? page.locator('.op-table tbody tr') : page.locator('.op-bank .op-list .op-application-card');
     await rows.first().waitFor();
     assert.ok(await rows.count() >= 6);
@@ -157,7 +181,7 @@ async function run(engine, width, height) {
     await noOverflow(page); await shot('bank');
 
     // Dashboard of the current company lists its applications.
-    await page.getByRole('button', { name: 'Клиент' }).click();
+    await page.getByRole('link', { name: 'Клиентский кабинет' }).click();
     await page.getByRole('heading', { name: 'Последние результаты' }).waitFor();
     await noOverflow(page);
     assert.deepEqual(errors, []);

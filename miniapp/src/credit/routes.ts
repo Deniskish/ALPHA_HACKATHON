@@ -10,11 +10,16 @@ export type Route =
   | { name: 'bank' }
   | { name: 'bank-application'; id: string };
 
+/** Which shell renders a route: the client cabinet or the bank workspace. */
+export const shellOf = (route: Route) => route.name === 'bank' || route.name === 'bank-application' ? 'bank' : 'client';
+
+/** Client shell: `#/`, `#/credit/new`, `#/credit/applications/:id/:stage`; bank shell: `#/bank`, `#/bank/applications/:id`.
+ * Links of the previous version (`#/new`, `#/applications/...`) still open. */
 export function parseRoute(hash: string): Route {
-  const path = hash.replace(/^#/, '') || '/';
+  const path = (hash.replace(/^#/, '') || '/').replace(/^\/credit(?=\/)/, '');
   const id = (prefix: string) => path.startsWith(prefix) ? decodeURIComponent(path.slice(prefix.length)) : '';
   if (path === '/new') return { name: 'new' };
-  if (path === '/bank') return { name: 'bank' };
+  if (path === '/bank' || path === '/bank/applications') return { name: 'bank' };
   if (id('/bank/applications/')) return { name: 'bank-application', id: id('/bank/applications/') };
   if (id('/applications/')) {
     const [appId, stage] = id('/applications/').split('/');
@@ -26,9 +31,9 @@ export function parseRoute(hash: string): Route {
 export function routeHash(route: Route) {
   switch (route.name) {
     case 'dashboard': return '#/';
-    case 'new': return '#/new';
+    case 'new': return '#/credit/new';
     case 'bank': return '#/bank';
-    case 'application': return `#/applications/${encodeURIComponent(route.id)}${route.stage ? `/${route.stage}` : ''}`;
+    case 'application': return `#/credit/applications/${encodeURIComponent(route.id)}${route.stage ? `/${route.stage}` : ''}`;
     case 'bank-application': return `#/bank/applications/${encodeURIComponent(route.id)}`;
   }
 }

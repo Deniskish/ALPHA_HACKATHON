@@ -1,7 +1,7 @@
 // One CreditApplication through five visible stages: Потребность → Подбор → Анкета → Рассмотрение → Решение.
 import { useCallback, useEffect, useState } from 'react';
 import { creditApi, type ApplicationView } from './api';
-import { ErrorNote, FlowSteps, Loading, StatusBadge } from './ui';
+import { ErrorNote, FlowSteps, Loading, PageTitle, StatusBadge } from './ui';
 import { errorMessage } from './format';
 import { navigate, stages, type Stage } from './routes';
 import { NeedEdit } from './NeedStep';
@@ -41,16 +41,12 @@ export function ApplicationPage({ id, stage }: { id: string; stage?: Stage }) {
   const go = (index: number) => { if (index <= reachedIndex && stages[index] !== 'review') navigate({ name: 'application', id, stage: stages[index] }); };
   return <div className="op-page">
     <nav className="op-breadcrumbs"><a href="#/">Кабинет</a><span>Заявка {view.application.number}</span></nav>
-    <header className="op-page-header">
-      <div>
-        <h1>Заявка {view.application.number}</h1>
-        <p className="op-muted">{view.company.name} · ИНН {view.company.inn} · {view.company.relationship === 'client' ? 'клиент банка' : 'не клиент банка'}</p>
-      </div>
-      <div className="op-status-box" aria-live="polite">
+    <PageTitle eyebrow={`${view.company.name} · ${view.company.relationship === 'client' ? 'клиент банка' : 'не клиент банка'}`}
+      title={`Заявка ${view.application.number}`} subtitle={`ИНН ${view.company.inn}`}
+      aside={<div className="op-status-box" aria-live="polite">
         <StatusBadge state={view.application.state} />
         <span><span className="op-muted">Следующий шаг:</span> {view.status.next}</span>
-      </div>
-    </header>
+      </div>} />
     <FlowSteps current={stages.indexOf(shown)} reachable={reachedIndex} onSelect={processing ? undefined : go} />
     {shown === 'need' && <NeedEdit view={view} onChange={setView} />}
     {shown === 'match' && <MatchStep view={view} onChange={(next) => { setView(next); navigate({ name: 'application', id, stage: 'form' }); }} />}

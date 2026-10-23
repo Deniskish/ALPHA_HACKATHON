@@ -2,7 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { parseRoute, routeHash, type Route } from './routes';
+import { parseRoute, routeHash, shellOf, type Route } from './routes';
+import { readinessSummary } from './readiness-view';
+import { Rate } from './ui';
 import { groupDigits, months, parseAmount } from './format';
 import { latestRun, processingStages } from './ApplicationProcessing';
 import { ApplicationResult } from './ApplicationResult';
@@ -39,6 +41,10 @@ test('hash routes round-trip and unknown paths fall back to the dashboard', () =
   assert.deepEqual(parseRoute('#/nowhere'), { name: 'dashboard' });
   assert.deepEqual(parseRoute(''), { name: 'dashboard' });
   assert.deepEqual(parseRoute('#/applications/a-1/unknown'), { name: 'application', id: 'a-1' });
+  // Client and bank are separate route shells; links of the previous version still open.
+  assert.equal(routeHash({ name: 'application', id: 'a-1', stage: 'form' }), '#/credit/applications/a-1/form');
+  assert.deepEqual(parseRoute('#/applications/a-1/form'), { name: 'application', id: 'a-1', stage: 'form' });
+  assert.equal(shellOf(parseRoute('#/bank/applications/x')), 'bank'); assert.equal(shellOf(parseRoute('#/credit/new')), 'client');
 });
 
 test('amount input accepts grouped digits and month labels are declined', () => {
@@ -67,7 +73,7 @@ test('status badges, flow steps and reasons render plain-language markup', () =>
   assert.match(steps, /aria-current="step">Анкета/);
   const reasons = renderToStaticMarkup(createElement(ReasonList, { reasons: [
     { code: 'a', kind: 'positive', text: 'Просрочек нет' }, { code: 'b', kind: 'warning', text: 'Сумма высока' }] }));
-  assert.match(reasons, /✓<\/span>Просрочек нет/); assert.match(reasons, /⚠<\/span>Сумма высока/);
+  assert.match(reasons, /data-kind="positive"><svg[^]*?<span>Просрочек нет<\/span>/); assert.match(reasons, /data-kind="warning"><svg[^]*?<span>Сумма высока<\/span>/);
 });
 
 test('approved result explains what happened, why and what to do next', async () => {
@@ -83,7 +89,7 @@ test('approved result explains what happened, why and what to do next', async ()
 
 test('counter offer shows offered versus requested terms; rejection offers a new application', async () => {
   const counter = renderToStaticMarkup(createElement(ApplicationResult, { view: await decided('0002000020'), onChange() {} }));
-  assert.match(counter, /встречное предложение/i); assert.match(counter, /<s class="op-muted">15\s000\s000\s₽<\/s>/);
+  assert.match(counter, /встречное предложение/i); assert.match(counter.replace(/<[^>]+>/g, ''), /запрошено\s*15\s000\s000\s₽/);
   const rejected = renderToStaticMarkup(createElement(ApplicationResult, { view: await decided('0004000040'), onChange() {} }));
   assert.match(rejected, /Заявка не одобрена/); assert.match(rejected, /Новая заявка/); assert.doesNotMatch(rejected, /Принять/);
 });
@@ -106,4 +112,24 @@ test('a new application starts at matching and moves to the questionnaire once a
   assert.equal(reachedStage({ application: { ...base, productId: 'working-capital' } } as never), 'form');
   assert.equal(reachedStage({ application: { ...base, productId: 'working-capital', state: 'SCORING' } } as never), 'review');
   assert.equal(reachedStage({ application: { ...base, productId: 'working-capital', state: 'ACTIVE_FINANCING' } } as never), 'decision');
+});
+
+test('rate and its composition are separate lines with a readable text', () => {
+  const html = renderToStaticMarkup(createElement(Rate, { rate: 19.5, pricing: { keyRate: 16, productMargin: 3.5, riskPremium: 0 } }));
+  assert.match(html, /<span class="op-rate-total"><strong>19,5%<\/strong> годовых<\/span>/);
+  assert.match(html, /<span class="op-rate-parts">16% ключевая ставка \+ 3,5% маржа<\/span>/);
+  // Copy/paste and screen readers get «19,5% годовых 16% ключевая…», never «годовых16%».
+  assert.doesNotMatch(html.replace(/<[^>]+>/g, ''), /годовых16/);
+});
+
+test('readiness explains what is left instead of a bare percentage', () => {
+  const item = (code: string, required: boolean, done: boolean) => ({ code, label: code === 'purposeDescription' ? 'Описание цели финансирования' : 'Обязательства и кредитная история (по вашим данным)',
+    required, done, group: 'financing' as const });
+  const oneLeft = readinessSummary({ ready: false, completeness: 0.9, items: [item('product', true, true), item('purposeDescription', true, false), item('obligations', false, false)],
+    missing: [item('purposeDescription', true, false)] }, 'Закупка сырья');
+  assert.equal(oneLeft.headline, 'Осталось 1 обязательное поле');
+  assert.match(oneLeft.detail, /описание цели — ещё 7 символов/);
+  const optionalOnly = readinessSummary({ ready: true, completeness: 0.9, items: [item('product', true, true), item('obligations', false, false)], missing: [] });
+  assert.equal(optionalOnly.headline, 'Всё обязательное заполнено');
+  assert.match(optionalOnly.detail, /можно отправить.*1 желательный пункт/i);
 });
