@@ -133,6 +133,40 @@ npm run dev          # терминал 2: frontend на http://localhost:3000
 Production-сборка без Docker: `npm run build`, затем `npm run api:server` и `npm start --prefix miniapp`
 (`API_URL` — адрес API для frontend-сервера, по умолчанию `http://127.0.0.1:3002`).
 
+### Production-деплой (PM2)
+
+Экземпляр работает рядом с другим проектом на том же сервере и не пересекается с ним: свои каталоги, процессы
+PM2 и порты. Все идентификаторы — в [ops/production.cjs](ops/production.cjs).
+
+| | Этот экземпляр | Не трогать (другой проект) |
+|---|---|---|
+| Код | `/opt/alfa-opora` | `/opt/app` |
+| Временные сборки и lock | `/opt/alfa-opora-deploy` (`release-*`, `deploy.lock`) | `/opt/opora-deploy` |
+| PM2 | `alfa-opora-frontend`, `alfa-opora-api` | `opora-frontend`, `opora-api` |
+| Порты | frontend `127.0.0.1:3100`, API `127.0.0.1:3102` | 3000, 3002 |
+| Домен | `alfa.business-opora.ru` (HTTPS-ingress → `127.0.0.1:3100`) | `business-opora.ru` |
+
+Первый запуск (один раз; `deploy.cjs` требует уже работающий `alfa-opora-api`, чтобы перенести его настройки):
+
+```bash
+git clone <repo> /opt/alfa-opora && mkdir -p /opt/alfa-opora-deploy && cd /opt/alfa-opora
+npm ci --prefix miniapp && npm ci --prefix miniapp/api-server && npm run build
+APP_ORIGIN=https://alfa.business-opora.ru node miniapp/scripts/restart-api.cjs   # alfa-opora-api на 127.0.0.1:3102
+pm2 start ecosystem.config.cjs && pm2 save                                       # alfa-opora-frontend на 127.0.0.1:3100
+node miniapp/scripts/check-production.cjs
+```
+
+Обновление до коммита из `main`:
+
+```bash
+flock -n /opt/alfa-opora-deploy/deploy.lock node /opt/alfa-opora/ops/deploy.cjs /opt/alfa-opora <sha>
+```
+
+`deploy.cjs` принимает только `/opt/alfa-opora`, собирает и тестирует коммит во временной папке, переключает
+артефакты, перезапускает и проверяет (`/api/health` на 3102, `check-production` на 3100, стабильность в PM2) только
+`alfa-opora-*`, при ошибке откатывается. Процессы и порты другого проекта не перечисляются, не перезапускаются и не
+удаляются (`ops/deploy.test.cjs`, `miniapp/scripts/restart-api.test.cjs`).
+
 ### Переобучение ML-модели (необязательно)
 
 ```bash
@@ -147,6 +181,7 @@ python generate_dataset.py && python train.py && python evaluate.py && python in
 | Переменная | Назначение | По умолчанию |
 |---|---|---|
 | `PORT`, `APP_ORIGIN` | Порт API, разрешённые origin для CORS | `3002`, `http://localhost:3000` |
+| `API_HOST` | Адрес, на котором слушает API | `0.0.0.0`; в PM2-деплое `127.0.0.1` |
 | `CREDIT_DB_PATH` | Файл SQLite | `miniapp/api-server/data/credit.sqlite`; в Docker `/data/credit/credit.sqlite` |
 | `CREDIT_KEY_RATE` | Демо-ключевая ставка, % | `16` |
 | `RISK_MODEL_ENABLED` | ML-модель риска (`false` — решения только по скорингу и правилам) | `true` |
@@ -216,6 +251,7 @@ python generate_dataset.py && python train.py && python evaluate.py && python in
 npm test                 # frontend + API: unit, API, контракт OpenAPI, паритет ML, LLM-фолбэк
 npm run build
 npm run test:production --prefix miniapp
+node --test ops/deploy.test.cjs
 # E2E (нужны запущенные API и frontend):
 npx --prefix miniapp playwright install chromium webkit
 OPORA_UI_ENGINE=chromium,webkit npm run test:e2e

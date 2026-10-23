@@ -1,4 +1,4 @@
-// Production frontend behind the existing HTTPS ingress; API stays on port 3002.
+// Production frontend behind the HTTPS ingress. Defaults are for a local run; PM2 sets PORT and API_URL (ecosystem.config.cjs).
 const express = require('express');
 const compression = require('compression');
 const { createProxyMiddleware } = require('http-proxy-middleware');

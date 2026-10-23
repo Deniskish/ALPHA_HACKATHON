@@ -8,6 +8,8 @@ config({ path: path.resolve(__dirname, __dirname.endsWith('dist') ? '../../../.e
 const port = Number(process.env.PORT || 3002);
 // Canonical application state; synthetic demo data is seeded on every start.
 const creditDb = process.env.CREDIT_DB_PATH || path.resolve(process.cwd(), 'data/credit.sqlite');
-createApp({ creditDb }).listen(port, '0.0.0.0', () => {
+// Docker needs all interfaces; the PM2 deployment binds to loopback behind the HTTPS ingress (API_HOST=127.0.0.1).
+const host = process.env.API_HOST || '0.0.0.0';
+createApp({ creditDb }).listen(port, host, () => {
   console.log(`Credit cabinet API: http://localhost:${port}/api/health`);
 });

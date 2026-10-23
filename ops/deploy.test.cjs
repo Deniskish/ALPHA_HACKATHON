@@ -3,7 +3,43 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { artifacts, switchArtifacts, restoreArtifacts, activateRelease, shouldSkip } = require('./deploy.cjs');
+const { main, artifacts, names, switchArtifacts, restoreArtifacts, activateRelease, shouldSkip } = require('./deploy.cjs');
+const production = require('./production.cjs');
+const repo = path.resolve(__dirname, '..');
+
+// Another project runs on the same host: /opt/app, PM2 opora-frontend/opora-api, ports 3000/3002.
+test('this instance has its own directories, PM2 names, loopback ports and domain', () => {
+  assert.equal(production.root, '/opt/alfa-opora');
+  assert.equal(production.deployDir, '/opt/alfa-opora-deploy');
+  assert.equal(path.dirname(production.lockFile), production.deployDir);
+  assert.equal(production.domain, 'alfa.business-opora.ru');
+  assert.deepEqual({ ...production.frontend }, { name: 'alfa-opora-frontend', host: '127.0.0.1', port: 3100 });
+  assert.deepEqual({ ...production.api }, { name: 'alfa-opora-api', host: '127.0.0.1', port: 3102 });
+  assert.deepEqual(names, ['alfa-opora-frontend', 'alfa-opora-api']);
+});
+
+test('deployment accepts only /opt/alfa-opora and fails before any command runs', async () => {
+  const sha = 'a'.repeat(40);
+  for (const root of ['/opt/app', '/opt/alfa-opora/', '/opt/alfa-opora-deploy', undefined]) {
+    await assert.rejects(main(root, sha), /INVALID_DEPLOY_ARGUMENTS/);
+  }
+  await assert.rejects(main(production.root, 'main'), /INVALID_DEPLOY_ARGUMENTS/);
+});
+
+test('PM2 starts only the frontend of this instance, proxying to its own API', () => {
+  const { apps } = require('../ecosystem.config.cjs');
+  assert.deepEqual(apps.map(app => app.name), ['alfa-opora-frontend']);
+  assert.deepEqual(apps[0].env, { NODE_ENV: 'production', HOST: '127.0.0.1', PORT: '3100', API_URL: 'http://127.0.0.1:3102' });
+});
+
+test('deployment code never names the other project\'s directories, processes or ports', () => {
+  for (const file of ['ecosystem.config.cjs', 'ops/deploy.cjs', 'miniapp/scripts/restart-api.cjs', 'miniapp/scripts/check-production.cjs']) {
+    const source = fs.readFileSync(path.join(repo, file), 'utf8');
+    assert.doesNotMatch(source, /\/opt\/(?:app|opora-deploy)\b/, file);
+    assert.doesNotMatch(source, /(?<!alfa-)opora-(?:frontend|api)\b/, file);
+    assert.doesNotMatch(source, /:300[02]\b|PORT\s*[:=]\s*'300[02]'/, file);
+  }
+});
 
 test('older queued commits never replace a newer release; reruns of the same commit are allowed', () => {
   assert.equal(shouldSkip('new', 'old', (a, b) => a === 'old' && b === 'new'), true);

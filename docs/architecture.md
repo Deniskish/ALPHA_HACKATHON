@@ -132,4 +132,7 @@ flowchart LR
 сидируются при каждом старте API (upsert), заявки сохраняются в volume.
 
 Вне Docker тот же frontend обслуживает `miniapp/scripts/serve.cjs` (pm2 через `ecosystem.config.cjs`), серверный
-деплой — `ops/deploy.cjs` (сборка во временной папке, переключение артефактов, проверка и откат).
+деплой — `ops/deploy.cjs` (сборка во временной папке, переключение артефактов, проверка и откат). Production-экземпляр
+изолирован от соседнего проекта на том же сервере: `/opt/alfa-opora`, временные сборки и lock в
+`/opt/alfa-opora-deploy`, PM2 `alfa-opora-frontend` (`127.0.0.1:3100`) и `alfa-opora-api` (`127.0.0.1:3102`), домен
+`alfa.business-opora.ru`; идентификаторы — в `ops/production.cjs` ([README](../README.md#production-деплой-pm2)).

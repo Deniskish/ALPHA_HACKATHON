@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
+const { frontend } = require('../../ops/production.cjs');
 (async () => {
-  const origin = process.env.FRONTEND_URL || 'http://127.0.0.1:3000';
+  const origin = process.env.FRONTEND_URL || `http://${frontend.host}:${frontend.port}`;
   const index = await fetch(origin, { signal: AbortSignal.timeout(10000) });
   assert.equal(index.status, 200, 'Frontend must respond');
   const html = await index.text();

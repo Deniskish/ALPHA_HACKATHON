@@ -17,7 +17,8 @@
 | Реестровый поиск | `api-server/company-data/*.test.ts` | Модуль поиска компании по ИНН (DaData, импорт ФНС) |
 | Frontend | `src/credit/credit-ui.test.ts` | Маршруты шагов, форматирование, отсутствие внутренних терминов у клиента, 5 шагов, рендер результата и кабинета, восстановление шага по состоянию |
 | Frontend: dev-сервер | `dev-server.test.ts` | Vite отдаёт общие модули и проксирует только `/api` |
-| Production-сервер | `scripts/serve.test.cjs`, `scripts/restart-api.test.cjs` | Кеширование, сжатие, proxy, перезапуск API |
+| Production-сервер | `scripts/serve.test.cjs`, `scripts/restart-api.test.cjs` | Кеширование, сжатие, proxy, перезапуск `alfa-opora-api` на `127.0.0.1:3102` без затрагивания `opora-api` |
+| Деплой | `ops/deploy.test.cjs` | Только `/opt/alfa-opora` и `/opt/alfa-opora-deploy`, PM2 `alfa-opora-*`, порты 3100/3102; в коде деплоя нет `/opt/app`, `opora-frontend`/`opora-api`, 3000/3002; транзакция и откат |
 | ML (Python) | `ml/inference.py --check` | Экспортированная модель воспроизводит LightGBM |
 | E2E (браузер) | `scripts/credit-e2e.check.cjs` | A–F через интерфейс: 5 шагов, клиент и не клиент, разбор текста, «Как улучшить заявку», принятие, подписание, выдача, платёж, банковская сторона с ML; без горизонтального скролла и ошибок консоли; Chromium и WebKit, 1280 и 390 px |
 | Docker smoke | `ops/docker-smoke.cjs` | `docker compose up --build`, healthcheck, request id через nginx, 6 сценариев, ML, улучшения, выдача и идемпотентный платёж, повторная обработка C, сохранность после перезапуска |
@@ -28,6 +29,7 @@
 npm test
 npm run build
 npm run test:production --prefix miniapp
+node --test ops/deploy.test.cjs
 # E2E: запустите API и frontend (README → «Локальный запуск»), затем
 OPORA_UI_ENGINE=chromium,webkit npm run test:e2e
 npm run smoke:docker

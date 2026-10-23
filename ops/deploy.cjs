@@ -1,11 +1,13 @@
-// Run on the production host under flock. Build first; switch only verified artifacts.
+// Run on the production host under flock (production.lockFile). Build first; switch only verified artifacts.
 const fs = require('node:fs');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
+const production = require('./production.cjs');
 
 const artifacts = ['miniapp/node_modules', 'miniapp/dist', 'miniapp/api-server/node_modules',
   'miniapp/api-server/dist'];
-const names = ['opora-frontend', 'opora-api'];
+// Only this instance's processes are listed, restarted or checked; the other project's PM2 apps are never touched.
+const names = [production.frontend.name, production.api.name];
 
 function switchArtifacts(root, stage, backup, state) {
   for (const relative of artifacts) {
@@ -48,7 +50,7 @@ function shouldSkip(current, target, isAncestor) {
 }
 
 async function main(root, sha) {
-  if (root !== '/opt/app' || !/^[a-f0-9]{40}$/.test(sha || '')) throw new Error('INVALID_DEPLOY_ARGUMENTS');
+  if (root !== production.root || !/^[a-f0-9]{40}$/.test(sha || '')) throw new Error('INVALID_DEPLOY_ARGUMENTS');
   const run = (cmd, args, options = {}) => execFileSync(cmd, args, {
     cwd: root, stdio: 'inherit', timeout: 300000, ...options,
   });
@@ -67,7 +69,7 @@ async function main(root, sha) {
     return;
   }
   if (git('status', '--porcelain', '--untracked-files=no')) throw new Error('SERVER_HAS_TRACKED_CHANGES');
-  const work = fs.mkdtempSync('/opt/opora-deploy/release-');
+  const work = fs.mkdtempSync(path.join(production.deployDir, 'release-'));
   fs.chmodSync(work, 0o700);
   const stage = path.join(work, 'stage'), backup = path.join(work, 'backup');
   fs.mkdirSync(stage); fs.mkdirSync(backup);
@@ -92,12 +94,12 @@ async function main(root, sha) {
     fs.writeFileSync(path.join(stage, 'miniapp/dist/version.json'), JSON.stringify({ revision: sha }) + '\n');
     const snapshot = JSON.parse(run('pm2', ['jlist'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }))
       .filter(p => names.includes(p.name));
-    if (!snapshot.some(p => p.name === 'opora-api')) throw new Error('RUNNING_API_REQUIRED');
+    if (!snapshot.some(p => p.name === production.api.name)) throw new Error('RUNNING_API_REQUIRED');
     fs.writeFileSync(path.join(backup, 'pm2.json'), JSON.stringify(snapshot), { mode: 0o600 });
     fs.writeFileSync(path.join(backup, 'revision'), previous);
     const previousVersion = path.join(root, 'miniapp/dist/version.json');
     const previousRevision = fs.existsSync(previousVersion) ? JSON.parse(fs.readFileSync(previousVersion)).revision : undefined;
-    const apiEnv = snapshot.find(p => p.name === 'opora-api').pm2_env;
+    const apiEnv = snapshot.find(p => p.name === production.api.name).pm2_env;
     const secretNames = ['NODE_EXTRA_CA_CERTS', 'NODE_OPTIONS', 'DADATA_API_KEY', 'APP_ORIGIN', 'FNS_DATA_DIR', 'CREDIT_DB_PATH', 'API_RATE_LIMIT'];
     const retainedEnv = {};
     for (const key of secretNames) {
@@ -106,8 +108,8 @@ async function main(root, sha) {
     }
     const restart = (revision) => {
       const list = JSON.parse(run('pm2', ['jlist'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }));
-      if (list.some(p => p.name === 'opora-frontend')) run('pm2', ['delete', 'opora-frontend']);
-      run('pm2', ['start', 'ecosystem.config.cjs', '--only', 'opora-frontend']);
+      if (list.some(p => p.name === production.frontend.name)) run('pm2', ['delete', production.frontend.name]);
+      run('pm2', ['start', 'ecosystem.config.cjs', '--only', production.frontend.name]);
       run(process.execPath, ['miniapp/scripts/restart-api.cjs'], {
         env: { ...process.env, ...retainedEnv, OPORA_RELEASE_SHA: revision || '' },
       });
@@ -116,7 +118,7 @@ async function main(root, sha) {
       let ready = false;
       for (let attempt = 0; attempt < 20; attempt++) {
         try {
-          const response = await fetch('http://127.0.0.1:3002/api/health', { signal: AbortSignal.timeout(3000) });
+          const response = await fetch(`http://${production.api.host}:${production.api.port}/api/health`, { signal: AbortSignal.timeout(3000) });
           const body = await response.json();
           if (response.ok && body.status === 'ok' && (!revision || body.revision === revision)) { ready = true; break; }
         } catch { /* bounded startup retry */ }
@@ -124,7 +126,8 @@ async function main(root, sha) {
       }
       if (!ready) throw new Error('API_READINESS_FAILED');
       run(process.execPath, ['miniapp/scripts/check-production.cjs'], {
-        env: { ...process.env, EXPECTED_RELEASE_SHA: revision || '' }, timeout: 90000,
+        env: { ...process.env, FRONTEND_URL: `http://${production.frontend.host}:${production.frontend.port}`, EXPECTED_RELEASE_SHA: revision || '' },
+        timeout: 90000,
       });
       // Catch crash loops after restart.
       await new Promise(resolve => setTimeout(resolve, 5000));
@@ -152,7 +155,7 @@ async function main(root, sha) {
   }
 }
 
-module.exports = { artifacts, switchArtifacts, restoreArtifacts, activateRelease, shouldSkip };
+module.exports = { main, artifacts, names, switchArtifacts, restoreArtifacts, activateRelease, shouldSkip };
 if (require.main === module) main(process.argv[2], process.argv[3]).catch(error => {
   // exec errors can contain environment values: emit only our error code, never the PM2 snapshot.
   console.error(/^[A-Z_]+(?:[: ].*)?$/.test(error.message) ? error.message : 'DEPLOY_COMMAND_FAILED (see the preceding step)');
