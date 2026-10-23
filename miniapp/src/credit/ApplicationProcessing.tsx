@@ -9,6 +9,7 @@ import type { ApplicationState } from '../../api-server/credit/types';
 export const processingStages: { state: ApplicationState; title: string; detail: string }[] = [
   { state: 'VALIDATING', title: 'Проверяем данные компании', detail: 'Полнота заявки и условия выбранного продукта' },
   { state: 'ENRICHING', title: 'Получаем сведения', detail: 'Регистрация компании, кредитная история и финансовые показатели' },
+  { state: 'RISK_ASSESSMENT', title: 'Оцениваем риски', detail: 'Модель риска сопоставляет показатели бизнеса с похожими компаниями' },
   { state: 'SCORING', title: 'Оцениваем заявку', detail: 'Срок работы, платёжная дисциплина, долговая нагрузка и прибыльность' },
   { state: 'DECISION', title: 'Формируем решение', detail: 'Подбираем сумму, срок и ставку, которые бизнес сможет обслуживать' },
 ];
@@ -57,18 +58,18 @@ export function ApplicationProcessing({ view, onDone }: { view: ApplicationView;
   }, [attempt, view.application.id, view.application.state, onDone]);
 
   const run = result ? latestRun(result) : { stages: processingStages.length, checks: [] };
-  return <Section title="Обрабатываем заявку" className="cc-processing">
-    <p className="cc-muted">Обычно это занимает несколько секунд. Можно не закрывать страницу.</p>
-    <ol className="cc-timeline" aria-live="polite">
+  return <Section title="Рассматриваем заявку" className="op-processing">
+    <p className="op-muted">Обычно это занимает несколько секунд. Можно не закрывать страницу.</p>
+    <ol className="op-timeline" aria-live="polite">
       {processingStages.slice(0, Math.max(run.stages, 1)).map((stage, index) => {
         const state = index < shown ? 'done' : index === shown ? 'active' : 'todo';
         return <li key={stage.state} data-state={state}>
-          <span className="cc-timeline-dot" aria-hidden="true">{state === 'done' ? '✓' : state === 'active' ? <span className="cc-spinner" /> : index + 1}</span>
+          <span className="op-timeline-dot" aria-hidden="true">{state === 'done' ? '✓' : state === 'active' ? <span className="op-spinner" /> : index + 1}</span>
           <div>
             <strong>{stage.title}</strong>
-            <span className="cc-muted">{stage.detail}</span>
+            <span className="op-muted">{stage.detail}</span>
             {stage.state === 'ENRICHING' && state === 'done' && run.checks.length > 0 &&
-              <ul className="cc-subchecks">{run.checks.map((message) => <li key={message}>{message}</li>)}</ul>}
+              <ul className="op-subchecks">{run.checks.map((message) => <li key={message}>{message}</li>)}</ul>}
           </div>
         </li>;
       })}

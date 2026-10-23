@@ -7,7 +7,8 @@ export const transitions: Readonly<Record<ApplicationState, readonly Application
   READY_TO_SUBMIT: ['DATA_COLLECTION', 'SUBMITTED'],
   SUBMITTED: ['VALIDATING'],
   VALIDATING: ['ENRICHING', 'NEEDS_INFO'],
-  ENRICHING: ['SCORING'],
+  ENRICHING: ['RISK_ASSESSMENT'],
+  RISK_ASSESSMENT: ['SCORING'],
   SCORING: ['DECISION'],
   DECISION: ['APPROVED', 'COUNTER_OFFER', 'NEEDS_INFO', 'REJECTED'],
   NEEDS_INFO: ['DATA_COLLECTION', 'READY_TO_SUBMIT'],
@@ -15,14 +16,15 @@ export const transitions: Readonly<Record<ApplicationState, readonly Application
   COUNTER_OFFER: ['OFFER_ACCEPTED'],
   REJECTED: [],
   OFFER_ACCEPTED: ['COMPLETED'],
-  COMPLETED: [],
+  COMPLETED: ['ACTIVE_FINANCING'],
+  ACTIVE_FINANCING: [],
 };
 
 /** States in which the client may still change application data. */
 export const editableStates: readonly ApplicationState[] = ['DRAFT', 'DATA_COLLECTION', 'READY_TO_SUBMIT', 'NEEDS_INFO'];
-export const processingStates: readonly ApplicationState[] = ['SUBMITTED', 'VALIDATING', 'ENRICHING', 'SCORING', 'DECISION'];
+export const processingStates: readonly ApplicationState[] = ['SUBMITTED', 'VALIDATING', 'ENRICHING', 'RISK_ASSESSMENT', 'SCORING', 'DECISION'];
 export const decisionStates: readonly ApplicationState[] = ['APPROVED', 'COUNTER_OFFER', 'NEEDS_INFO', 'REJECTED'];
-export const finalStates: readonly ApplicationState[] = ['REJECTED', 'COMPLETED'];
+export const finalStates: readonly ApplicationState[] = ['REJECTED', 'ACTIVE_FINANCING'];
 
 export function canTransition(from: ApplicationState, to: ApplicationState) {
   return transitions[from].includes(to);

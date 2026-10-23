@@ -1,6 +1,6 @@
 // Local stand-ins for external data sources. They never call the network and answer only from
 // the synthetic dataset, a configured registry lookup or documents the applicant attached.
-import { syntheticSources } from './synthetic-data';
+import { resolveDate, syntheticSources } from './synthetic-data';
 import type { ApplicationDocument, CheckProvider, CheckStatus, Company, CreditApplication } from './types';
 
 export type CheckInput = { company: Company; application: CreditApplication; documents: ApplicationDocument[]; now: Date };
@@ -16,9 +16,9 @@ const hasDocument = (documents: ApplicationDocument[], type: ApplicationDocument
 export class FNSMockProvider implements ExternalDataProvider {
   readonly provider = 'FNS' as const;
   constructor(private readonly sources = syntheticSources) {}
-  check({ company, documents }: CheckInput): CheckOutcome {
+  check({ company, documents, now }: CheckInput): CheckOutcome {
     const synthetic = this.sources.get(company.inn);
-    if (synthetic) return { status: 'OK', payload: { ...synthetic.fns, source: 'synthetic-registry' } };
+    if (synthetic) return { status: 'OK', payload: { ...synthetic.fns, registrationDate: resolveDate(synthetic.fns.registrationDate, now), source: 'synthetic-registry' } };
     if (company.source === 'registry')
       return { status: 'OK', payload: { active: true, registrationDate: company.registrationDate, okved: company.okved, source: 'registry-lookup' } };
     if (hasDocument(documents, 'REGISTRY_EXTRACT'))
@@ -33,8 +33,8 @@ export class BKIMockProvider implements ExternalDataProvider {
   constructor(private readonly sources = syntheticSources) {}
   check({ company }: CheckInput): CheckOutcome {
     const synthetic = this.sources.get(company.inn);
-    if (synthetic) return { status: 'OK', payload: { ...synthetic.bki, source: 'synthetic-bureau' } };
-    return { status: 'NO_HISTORY', payload: { activeDebt: 0, overdueAmount: 0, maxDaysOverdue: 0, hasHistory: false, source: 'synthetic-bureau' } };
+    if (synthetic) return { status: synthetic.bki.hasHistory ? 'OK' : 'NO_HISTORY', payload: { ...synthetic.bki, source: 'synthetic-bureau' } };
+    return { status: 'NO_HISTORY', payload: { activeDebt: 0, overdueAmount: 0, maxDaysOverdue: 0, hasHistory: false, activeLoans: 0, latePayments12m: 0, source: 'synthetic-bureau' } };
   }
 }
 

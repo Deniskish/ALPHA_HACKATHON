@@ -2,10 +2,11 @@
 // docs/scoring-and-decision.md; this is not a real bank's credit policy.
 import { affordablePrincipal, businessAgeMonths, formatMonths as months, formatRub, monthlyPayment, roundDown } from './finance';
 import { documentLabels } from './labels';
+import { priceProduct } from './pricing';
 import { financialFacts, type Score } from './scoring';
 import type { Readiness } from './readiness';
 import type {
-  ApplicationDocument, CreditApplication, CreditDecision, CreditProduct, DecisionReason, ExternalCheck, OfferTerms, RequiredInfo,
+  ApplicationDocument, CreditApplication, CreditDecision, CreditProduct, DecisionReason, ExternalCheck, OfferTerms, RequiredInfo, RiskAssessment,
 } from './types';
 
 export const DECISION_POLICY = {
@@ -18,8 +19,12 @@ export const DECISION_POLICY = {
   debtToRevenue: 0.5,
   /** Medium-risk applications get at most this share of the requested amount. */
   mediumRiskAmountShare: 0.8,
-  mediumRiskRatePremium: 2,
   amountStep: 100_000,
+  /**
+   * ML risk (separate model) can only make terms more cautious: at or above this probability an
+   * otherwise approvable application gets a counter offer with medium-risk terms. It never approves or rejects on its own.
+   */
+  mlCautionProbability: 0.2,
 } as const;
 
 export type DecisionInput = {
@@ -33,6 +38,8 @@ export type DecisionInput = {
   readiness: Readiness;
   documents: ApplicationDocument[];
   now: Date;
+  /** Output of the ML risk model; optional so the engine works without it. */
+  riskAssessment?: Pick<RiskAssessment, 'probability' | 'riskLevel'> | null;
 };
 export type Decision = Pick<CreditDecision, 'outcome' | 'offer' | 'reasons' | 'requiredInfo' | 'summary' | 'nextAction'>;
 
@@ -64,7 +71,7 @@ export class CreditDecisionEngine {
       nextAction: 'Дополните заявку по списку ниже и отправьте её повторно — проверка займёт несколько секунд.',
     };
 
-    const reasons = this.factorReasons(scoringResult);
+    const reasons = [...this.factorReasons(scoringResult), ...this.consistencyReasons(input)];
     const rejected = (text: string, code: string, nextAction: string): Decision => ({
       outcome: 'REJECTED', offer: null, requiredInfo: [], reasons: [{ code, kind: 'negative', text }, ...reasons.filter((r) => r.kind !== 'positive')],
       summary: 'К сожалению, сейчас мы не можем одобрить финансирование.', nextAction,
@@ -88,8 +95,9 @@ export class CreditDecisionEngine {
       return rejected(`Итоговая оценка заявки ${scoringResult.score} из 100 ниже порога ${this.policy.counterOfferScore}`, 'LOW_SCORE',
         'Снизьте долговую нагрузку или запросите меньшую сумму и подайте новую заявку.');
 
-    // 4. Affordability: what the business can service.
-    const medium = scoringResult.score < this.policy.approveScore;
+    // 4. Affordability: what the business can service. Medium risk comes from the score or, more cautiously, from the ML model.
+    const mlCaution = !!input.riskAssessment && input.riskAssessment.probability >= this.policy.mlCautionProbability;
+    const medium = scoringResult.score < this.policy.approveScore || mlCaution;
     const capacity = this.capacity(facts.revenue!, facts.profit!, facts.debt ?? 0);
     const terms = (candidate: CreditProduct) => this.bestTerms(candidate, amount, term, capacity, medium);
     const own = terms(product);
@@ -107,7 +115,9 @@ export class CreditDecisionEngine {
 
     const offerProduct = input.products.find((p) => p.id === offer.productId)!;
     const changes: DecisionReason[] = [];
-    if (medium) changes.push({ code: 'MEDIUM_RISK', kind: 'warning', text: `Оценка заявки ${scoringResult.score} из 100 — предлагаем более осторожные условия` });
+    if (medium) changes.push(mlCaution && scoringResult.score >= this.policy.approveScore
+      ? { code: 'ML_RISK_CAUTION', kind: 'warning', text: 'Модель оценки рисков видит повышенную вероятность трудностей с обслуживанием — предлагаем более осторожные условия' }
+      : { code: 'MEDIUM_RISK', kind: 'warning', text: `Оценка заявки ${scoringResult.score} из 100 — предлагаем более осторожные условия` });
     if (offer.amount < amount) changes.push({ code: 'AMOUNT_REDUCED', kind: 'warning',
       text: `Сумма снижена до ${formatRub(offer.amount)}: платёж не должен превышать ${Math.round(this.policy.paymentToProfit * 100)}% среднемесячной прибыли, а все долги — ${Math.round(this.policy.debtToRevenue * 100)}% годовой выручки` });
     if (offer.termMonths !== term) changes.push({ code: 'TERM_CHANGED', kind: 'info', text: `Срок изменён на ${months(offer.termMonths)}, чтобы снизить ежемесячный платёж` });
@@ -125,7 +135,7 @@ export class CreditDecisionEngine {
 
   /** Largest affordable amount (≤ requested) and the shortest term ≥ requested that makes it affordable. */
   private bestTerms(product: CreditProduct, amount: number, term: number, capacity: { payment: number; debtRoom: number }, medium: boolean): OfferTerms | null {
-    const rate = product.baseRate + (medium ? this.policy.mediumRiskRatePremium : 0);
+    const pricing = priceProduct(product, medium ? 'MEDIUM' : 'LOW'), rate = pricing.rate;
     const minTerm = Math.min(Math.max(term, product.minTermMonths), product.maxTermMonths);
     const ceiling = Math.min(amount * (medium ? this.policy.mediumRiskAmountShare : 1), product.maxAmount, capacity.debtRoom,
       affordablePrincipal(capacity.payment, rate, product.maxTermMonths));
@@ -133,7 +143,20 @@ export class CreditDecisionEngine {
     if (offered < product.minAmount) return null;
     let months = minTerm;
     while (months < product.maxTermMonths && affordablePrincipal(capacity.payment, rate, months) < offered) months++;
-    return { productId: product.id, amount: offered, termMonths: months, rate, monthlyPayment: monthlyPayment(offered, rate, months) };
+    return { productId: product.id, amount: offered, termMonths: months, rate, monthlyPayment: monthlyPayment(offered, rate, months),
+      pricing: { keyRate: pricing.keyRate, productMargin: pricing.productMargin, riskPremium: pricing.riskPremium } };
+  }
+
+  /** Self-reported obligations and credit history compared with the bureau; informs, never decides. */
+  private consistencyReasons(input: DecisionInput): DecisionReason[] {
+    const bki = financialFacts(input.externalChecks).bki, declared = input.application.declaredCreditHistory;
+    const reasons: DecisionReason[] = [];
+    if (bki?.hasHistory && declared && !declared.hadOverdue12m && bki.maxDaysOverdue > 0)
+      reasons.push({ code: 'DECLARED_HISTORY_MISMATCH', kind: 'warning', text: 'В анкете не указаны просрочки, но они есть в кредитной истории' });
+    const loans = input.application.declaredFinancials?.activeLoans;
+    if (bki?.hasHistory && loans !== undefined && bki.activeLoans !== undefined && loans < bki.activeLoans)
+      reasons.push({ code: 'DECLARED_LOANS_MISMATCH', kind: 'info', text: 'В кредитной истории больше действующих кредитов, чем указано в анкете' });
+    return reasons;
   }
 
   private factorReasons(score: Score): DecisionReason[] {

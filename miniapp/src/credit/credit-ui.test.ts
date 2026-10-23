@@ -6,7 +6,9 @@ import { parseRoute, routeHash, type Route } from './routes';
 import { groupDigits, months, parseAmount } from './format';
 import { latestRun, processingStages } from './ApplicationProcessing';
 import { ApplicationResult } from './ApplicationResult';
-import { CompanyProfile } from './NewCredit';
+import { CreditDashboard } from './CreditDashboard';
+import { isoDate } from './StartScreen';
+import { reachedStage } from './ApplicationPage';
 import { FlowSteps, ReasonList, StatusBadge } from './ui';
 import { clientStateLabels, providerLabels } from '../../api-server/credit/labels';
 import { ApplicationService } from '../../api-server/credit/service';
@@ -31,16 +33,19 @@ async function decided(inn: string) {
 }
 
 test('hash routes round-trip and unknown paths fall back to the dashboard', () => {
-  const routes: Route[] = [{ name: 'dashboard' }, { name: 'new' }, { name: 'bank' }, { name: 'application', id: 'a-1' }, { name: 'bank-application', id: 'b 2' }];
+  const routes: Route[] = [{ name: 'dashboard' }, { name: 'new' }, { name: 'bank' }, { name: 'application', id: 'a-1' },
+    { name: 'application', id: 'a-1', stage: 'match' }, { name: 'application', id: 'a-1', stage: 'decision' }, { name: 'bank-application', id: 'b 2' }];
   for (const route of routes) assert.deepEqual(parseRoute(routeHash(route)), route);
   assert.deepEqual(parseRoute('#/nowhere'), { name: 'dashboard' });
   assert.deepEqual(parseRoute(''), { name: 'dashboard' });
+  assert.deepEqual(parseRoute('#/applications/a-1/unknown'), { name: 'application', id: 'a-1' });
 });
 
 test('amount input accepts grouped digits and month labels are declined', () => {
   assert.equal(parseAmount('3 000 000 ₽'), 3_000_000); assert.equal(parseAmount(''), null);
   assert.equal(groupDigits(2_500_000), '2 500 000'); assert.equal(groupDigits(null), '');
   assert.deepEqual([1, 3, 12, 21, 24].map(months), ['1 месяц', '3 месяца', '12 месяцев', '21 месяц', '24 месяца']);
+  assert.equal(isoDate('05.03.2021'), '2021-03-05'); assert.equal(isoDate('31.02.2021'), null); assert.equal(isoDate('2021-03-05'), null);
 });
 
 test('client-facing labels never expose internal bank or engine terms', () => {
@@ -50,14 +55,16 @@ test('client-facing labels never expose internal bank or engine terms', () => {
   }
   for (const stage of processingStages) assert.doesNotMatch(stage.title + stage.detail, internalTerms);
   for (const label of Object.values(providerLabels)) assert.doesNotMatch(label.client, internalTerms);
-  assert.deepEqual(processingStages.map((s) => s.title), ['Проверяем данные компании', 'Получаем сведения', 'Оцениваем заявку', 'Формируем решение']);
+  assert.deepEqual(processingStages.map((s) => s.title), ['Проверяем данные компании', 'Получаем сведения', 'Оцениваем риски', 'Оцениваем заявку', 'Формируем решение']);
 });
 
 test('status badges, flow steps and reasons render plain-language markup', () => {
   assert.match(renderToStaticMarkup(createElement(StatusBadge, { state: 'NEEDS_INFO' })), /Нужны дополнительные данные/);
   assert.match(renderToStaticMarkup(createElement(StatusBadge, { state: 'SCORING', internal: true })), />SCORING</);
   const steps = renderToStaticMarkup(createElement(FlowSteps, { current: 2 }));
-  assert.equal((steps.match(/aria-current="step"/g) ?? []).length, 1); assert.match(steps, /Продукт/);
+  assert.equal((steps.match(/aria-current="step"/g) ?? []).length, 1);
+  for (const step of ['Потребность', 'Подбор', 'Анкета', 'Рассмотрение', 'Решение']) assert.match(steps, new RegExp(step));
+  assert.match(steps, /aria-current="step">Анкета/);
   const reasons = renderToStaticMarkup(createElement(ReasonList, { reasons: [
     { code: 'a', kind: 'positive', text: 'Просрочек нет' }, { code: 'b', kind: 'warning', text: 'Сумма высока' }] }));
   assert.match(reasons, /✓<\/span>Просрочек нет/); assert.match(reasons, /⚠<\/span>Сумма высока/);
@@ -70,21 +77,33 @@ test('approved result explains what happened, why and what to do next', async ()
     assert.ok(html.includes(text), text);
   assert.doesNotMatch(html.replace(/<[^>]+>/g, ' '), internalTerms);
   const run = latestRun(view);
-  assert.equal(run.stages, 4); assert.equal(run.checks.length, 3);
+  assert.equal(run.stages, 5); assert.equal(run.checks.length, 3);
+  assert.equal(reachedStage(view), 'decision');
 });
 
 test('counter offer shows offered versus requested terms; rejection offers a new application', async () => {
   const counter = renderToStaticMarkup(createElement(ApplicationResult, { view: await decided('0002000020'), onChange() {} }));
-  assert.match(counter, /встречное предложение/i); assert.match(counter, /<s class="cc-muted">15\s000\s000\s₽<\/s>/);
+  assert.match(counter, /встречное предложение/i); assert.match(counter, /<s class="op-muted">15\s000\s000\s₽<\/s>/);
   const rejected = renderToStaticMarkup(createElement(ApplicationResult, { view: await decided('0004000040'), onChange() {} }));
   assert.match(rejected, /Заявка не одобрена/); assert.match(rejected, /Новая заявка/); assert.doesNotMatch(rejected, /Принять/);
 });
 
-test('company profile marks synthetic data and shows financial indicators or their absence', async () => {
+test('dashboard shows bank data for a client and marks it synthetic', async () => {
   const service = new ApplicationService(new CreditStore(), { now: () => now });
-  const render = (inn: string) => renderToStaticMarkup(createElement(CompanyProfile, { company: { ...service.store.getCompany(inn)!, syntheticLabel: null } }));
-  const a = render('0001000010');
-  assert.match(a, /Синтетические демонстрационные данные/); assert.match(a, /Выручка/); assert.match(a, /0001000010/);
-  assert.match(render('0003000030'), /Показателей в источниках нет/);
+  const render = (inn: string, relationship: 'client' | 'non_client') => renderToStaticMarkup(createElement(CreditDashboard,
+    { session: { relationship, manual: null, company: { ...service.store.getCompany(inn)!, syntheticLabel: null } } }));
+  const client = render('0001000010', 'client');
+  for (const text of ['Синтетические демонстрационные данные', 'Клиент банка · демо', 'Обороты по счёту', 'Получить финансирование', '0001000010'])
+    assert.ok(client.includes(text), text);
+  const nonClient = render('0005000050', 'non_client');
+  assert.match(nonClient, /Пока не клиент банка/); assert.doesNotMatch(nonClient, /Обороты по счёту/);
   service.store.close();
+});
+
+test('a new application starts at matching and moves to the questionnaire once a product is chosen', () => {
+  const base = { productId: null, state: 'DRAFT' } as const;
+  assert.equal(reachedStage({ application: base } as never), 'match');
+  assert.equal(reachedStage({ application: { ...base, productId: 'working-capital' } } as never), 'form');
+  assert.equal(reachedStage({ application: { ...base, productId: 'working-capital', state: 'SCORING' } } as never), 'review');
+  assert.equal(reachedStage({ application: { ...base, productId: 'working-capital', state: 'ACTIVE_FINANCING' } } as never), 'decision');
 });

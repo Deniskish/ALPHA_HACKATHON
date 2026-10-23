@@ -9,6 +9,7 @@ import { creditRouter } from './credit/router';
 import { companyDataRouter } from './company-data/router';
 import { ApplicationService } from './credit/service';
 import { CreditStore } from './credit/store';
+import { LightGbmRiskModel } from './credit/ml-model';
 
 const root = path.resolve(__dirname, '../..');
 const spec = parse(readFileSync(path.join(root, 'openapi.yaml'), 'utf8'));
@@ -81,7 +82,7 @@ test('live responses of a complete scenario match the documented schemas', async
   assert.ok(validate({}, { $ref: '#/components/schemas/ApplicationView' }, 'x').some((e) => e.endsWith('application: required')));
   assert.ok(validate({ state: 'PAID' }, { type: 'object', properties: { state: { $ref: '#/components/schemas/ApplicationState' } } }, 'x').length);
   assert.ok(validate({ score: 1.5 }, { $ref: '#/components/schemas/ScoringResult' }, 'x').some((e) => /expected integer/.test(e)));
-  const credit = new ApplicationService(new CreditStore());
+  const credit = new ApplicationService(new CreditStore(), { riskModel: new LightGbmRiskModel() });
   const server = createApp({ env: {}, credit }).listen(0, '127.0.0.1');
   await new Promise<void>((resolve) => server.once('listening', resolve));
   const { port } = server.address() as { port: number };
@@ -103,6 +104,11 @@ test('live responses of a complete scenario match the documented schemas', async
     const created = await call('POST', '/api/applications', '/api/applications', '201',
       { companyInn: '0002000020', productId: 'investment', purpose: 'EQUIPMENT', requestedAmount: 15_000_000, requestedTermMonths: 36, purposeDescription: 'Покупка станков для расширения сервиса' });
     const id = created.application.id, item = '/api/applications/{id}';
+    await call('GET', `/api/applications/${id}/matches`, `${item}/matches`, '200');
+    await call('GET', `/api/applications/${id}/risk`, `${item}/risk`, '404');
+    await call('GET', `/api/applications/${id}/improvements`, `${item}/improvements`, '404');
+    await call('POST', '/api/assistant/parse-need', '/api/assistant/parse-need', '200', { text: 'Хочу открыть вторую кофейню, нужно около 4 млн рублей' });
+    await call('POST', '/api/assistant/parse-need', '/api/assistant/parse-need', '400', { text: '' });
     await call('POST', `/api/applications/${id}/submit`, `${item}/submit`, '422');
     await call('PATCH', `/api/applications/${id}`, item, '400', { requestedAmount: 'many' });
     for (const type of ['BANK_STATEMENT', 'INVESTMENT_PLAN'])
@@ -113,9 +119,22 @@ test('live responses of a complete scenario match the documented schemas', async
     await call('GET', `/api/applications/${id}/scoring`, `${item}/scoring`, '200');
     await call('GET', `/api/applications/${id}/decision`, `${item}/decision`, '200');
     await call('GET', `/api/applications/${id}/events`, `${item}/events`, '200');
+    const risk = await call('GET', `/api/applications/${id}/risk`, `${item}/risk`, '200');
+    assert.ok(risk.probability > 0 && risk.probability < 1 && risk.topFactors.length > 0);
+    const improvements = await call('GET', `/api/applications/${id}/improvements`, `${item}/improvements`, '200');
+    assert.ok(improvements.scenarios.length > 0);
+    for (const kind of ['decision', 'improvements'])
+      assert.equal((await call('GET', `/api/applications/${id}/explanation?kind=${kind}`, `${item}/explanation`, '200')).source, 'template');
+    await call('GET', `/api/applications/${id}/explanation?kind=other`, `${item}/explanation`, '400');
+    await call('POST', `/api/applications/${id}/payments`, `${item}/payments`, '409');
     await call('POST', `/api/applications/${id}/sign`, `${item}/sign`, '409');
     await call('POST', `/api/applications/${id}/accept`, `${item}/accept`, '200');
     await call('POST', `/api/applications/${id}/sign`, `${item}/sign`, '200');
+    const issued = await call('POST', `/api/applications/${id}/issue`, `${item}/issue`, '200');
+    assert.equal(issued.application.state, 'ACTIVE_FINANCING');
+    const paid = await call('POST', `/api/applications/${id}/payments`, `${item}/payments`, '200');
+    assert.equal(paid.financing.paidInstallments, 1);
+    await call('POST', `/api/applications/${id}/issue`, `${item}/issue`, '409');
     await call('GET', `/api/applications/${id}`, item, '200');
     await call('GET', '/api/applications?inn=0002000020', '/api/applications', '200');
     await call('GET', '/api/bank/applications', '/api/bank/applications', '200');

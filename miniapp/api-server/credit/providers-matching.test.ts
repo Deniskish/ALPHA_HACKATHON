@@ -23,7 +23,10 @@ const input = (company: Company, patch: Partial<CreditApplication> = {}, documen
 
 test('synthetic INNs are valid but use the unassigned region 00; every scenario is present', () => {
   for (const company of companies.values()) { assert.ok(validInn(company.inn)); assert.match(company.inn, /^00/); assert.match(company.name, /Демо/); }
-  assert.deepEqual([...companies.values()].map((c) => c.demo?.scenario), ['APPROVED', 'COUNTER_OFFER', 'NEEDS_INFO', 'REJECTED']);
+  assert.deepEqual([...companies.values()].map((c) => [c.demo?.scenario, c.relationship]), [['APPROVED', 'client'], ['COUNTER_OFFER', 'client'],
+    ['NEEDS_INFO', 'client'], ['REJECTED', 'client'], ['APPROVED', 'non_client'], ['COUNTER_OFFER', 'non_client']]);
+  for (const company of companies.values()) assert.equal(!!company.bankProfile, company.relationship === 'client');
+  assert.equal(companies.get('0005000050')!.financials, null, 'the bank does not know figures of a non-client');
 });
 
 test('mock providers answer from the synthetic dataset without network access', () => {
@@ -53,13 +56,15 @@ test('missing source data becomes NOT_FOUND until the applicant attaches a docum
 test('product matching explains fit and recommends the cheapest eligible product', () => {
   const a = companies.get('0001000010')!;
   const matches = matchProducts(creditProducts, a, { purpose: 'WORKING_CAPITAL', requestedAmount: 3_000_000, requestedTermMonths: 12 }, now);
-  assert.deepEqual(matches.map((m) => [m.product.id, m.eligible, m.recommended]),
-    [['working-capital', true, true], ['express', true, false], ['investment', false, false]]);
+  assert.deepEqual(matches.filter((m) => m.eligible).map((m) => [m.product.id, m.recommended]), [['working-capital', true], ['express', false]]);
+  assert.equal(matches.length, 6);
+  assert.deepEqual(matches[0].pricing, { keyRate: 16, productMargin: 3.5, riskPremium: 0, rate: 19.5 });
   assert.ok(matches[0].checks.every((c) => c.ok)); assert.equal(matches[0].estimatedMonthlyPayment, monthlyPayment(3_000_000, 19.5, 12));
   const investment = matches.find((m) => m.product.id === 'investment')!;
   assert.match(investment.checks.find((c) => c.code === 'purpose')!.text, /не финансируется/);
   const young = matchProducts(creditProducts, { registrationDate: '2026-01-10' }, { purpose: 'EQUIPMENT', requestedAmount: 2_000_000, requestedTermMonths: 12 }, now);
-  assert.deepEqual(young.filter((m) => m.eligible).map((m) => m.product.id), ['express']);
+  assert.deepEqual(young.filter((m) => m.eligible).map((m) => m.product.id), ['young-business', 'express'], 'young business product is cheaper than express');
+  assert.match(young.find((m) => m.product.id === 'equipment')!.checks.find((c) => c.code === 'businessAge')!.text, /нужно от 1 год/);
   assert.match(young.find((m) => m.product.id === 'investment')!.checks.find((c) => c.code === 'businessAge')!.text, /нужно от 2 года/);
   assert.ok(matchProducts(creditProducts, a, { purpose: 'OTHER', requestedAmount: 50_000_000, requestedTermMonths: 12 }, now).every((m) => !m.eligible));
 });
@@ -73,7 +78,8 @@ test('readiness requires product limits, description and product documents; fina
   readiness = applicationReadiness(app({ purposeDescription: 'коротко', requestedAmount: 99_000_000 }), product, a, [doc('BANK_STATEMENT')], now);
   assert.deepEqual(readiness.missing.map((i) => i.code), ['amount', 'purposeDescription']);
   assert.deepEqual(applicationReadiness(app({ productId: null }), null, a, [], now).missing.map((i) => i.code), ['product']);
-  readiness = applicationReadiness(app({ declaredFinancials: { revenue: 1, expenses: 1, currentDebt: 0 } }), product, a, [doc('BANK_STATEMENT'), doc('FINANCIAL_STATEMENT')], now);
+  readiness = applicationReadiness(app({ declaredFinancials: { revenue: 1, expenses: 1, currentDebt: 0, activeLoans: 0 }, declaredCreditHistory: { hadOverdue12m: false, maxOverdueDays: 0 } }),
+    product, a, [doc('BANK_STATEMENT'), doc('FINANCIAL_STATEMENT')], now);
   assert.equal(readiness.completeness, 1);
 });
 

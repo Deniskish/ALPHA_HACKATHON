@@ -17,8 +17,8 @@ test('seed is idempotent and keeps synthetic companies and products reproducible
   try {
     store.seed(syntheticCompanyRecords(now), creditProducts);
     store.seed(syntheticCompanyRecords(now), creditProducts);
-    assert.equal(store.listDemoCompanies().length, 4);
-    assert.deepEqual(store.listProducts().map((p) => p.id), ['working-capital', 'investment', 'express']);
+    assert.equal(store.listDemoCompanies().length, 6);
+    assert.deepEqual(store.listProducts().map((p) => p.id), ['working-capital', 'investment', 'express', 'equipment', 'refinancing', 'young-business']);
     assert.equal(store.getCompany('0003000030')?.financials, null);
     assert.ok(store.listDemoCompanies().every((c) => c.isSynthetic && c.demo));
   } finally { store.close(); }

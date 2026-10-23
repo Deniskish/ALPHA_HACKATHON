@@ -1,5 +1,9 @@
 # docker compose up --build → frontend http://localhost:3000, API http://localhost:3002.
-# No keys are required: synthetic demo data is seeded automatically, external checks are local mocks.
+# No keys are required: synthetic demo data is seeded automatically, external checks are local mocks,
+# the ML risk model ships with the API (trained offline in ml/). The LLM assistant is optional and off by default:
+#   docker compose --profile ai up -d ollama && docker compose exec ollama ollama pull qwen2.5:7b-instruct
+#   AI_ENABLED=true docker compose up -d api
+# Model weights are never downloaded automatically.
 services:
   api:
     build:
@@ -10,6 +14,17 @@ services:
       APP_ORIGIN: ${APP_ORIGIN:-http://localhost:${FRONTEND_PORT:-3000}}
       CREDIT_DB_PATH: /data/credit/credit.sqlite
       API_RATE_LIMIT: ${API_RATE_LIMIT:-300}
+      # nginx reaches the API from the compose network; X-Forwarded-For is set (overwritten) by nginx.
+      TRUST_PROXY: ${TRUST_PROXY:-loopback,uniquelocal}
+      LOG_REQUESTS: ${LOG_REQUESTS:-true}
+      CREDIT_KEY_RATE: ${CREDIT_KEY_RATE:-16}
+      RISK_MODEL_ENABLED: ${RISK_MODEL_ENABLED:-true}
+      # Optional local open-weight LLM (OpenAI-compatible API). The credit flow works fully with AI_ENABLED=false.
+      AI_ENABLED: ${AI_ENABLED:-false}
+      LLM_BASE_URL: ${LLM_BASE_URL:-http://ollama:11434/v1}
+      LLM_MODEL: ${LLM_MODEL:-qwen2.5:7b-instruct}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_TIMEOUT_MS: ${LLM_TIMEOUT_MS:-20000}
       # Optional registry lookup for arbitrary INNs; the demo flow does not need it.
       DADATA_API_KEY: ${DADATA_API_KEY:-}
       FNS_DATA_DIR: /data/fns
@@ -39,5 +54,15 @@ services:
       timeout: 5s
       retries: 5
     restart: unless-stopped
+  # Optional: local LLM runtime for the AI assistant. Started only with `--profile ai`; it pulls no model by itself.
+  ollama:
+    image: ollama/ollama:0.24.0
+    profiles: ["ai"]
+    volumes:
+      - ollama-models:/root/.ollama
+    ports:
+      - "127.0.0.1:${OLLAMA_PORT:-11434}:11434"
+    restart: unless-stopped
 volumes:
   credit-data:
+  ollama-models:

@@ -1,17 +1,29 @@
-// Chooses the screen by the server-side state: workspace → processing → result.
+// One CreditApplication through five visible stages: Потребность → Подбор → Анкета → Рассмотрение → Решение.
 import { useCallback, useEffect, useState } from 'react';
 import { creditApi, type ApplicationView } from './api';
 import { ErrorNote, FlowSteps, Loading, StatusBadge } from './ui';
 import { errorMessage } from './format';
-import { ApplicationWorkspace } from './ApplicationWorkspace';
+import { navigate, stages, type Stage } from './routes';
+import { NeedEdit } from './NeedStep';
+import { MatchStep } from './MatchStep';
+import { FormStep } from './FormStep';
 import { ApplicationProcessing } from './ApplicationProcessing';
 import { ApplicationResult } from './ApplicationResult';
 import { editableStates, processingStates } from '../../api-server/credit/state-machine';
 
-export function ApplicationPage({ id }: { id: string }) {
+/** Furthest stage the application has reached, derived from its server-side state. */
+export function reachedStage(view: Pick<ApplicationView, 'application'>): Stage {
+  const app = view.application;
+  if (processingStates.includes(app.state)) return 'review';
+  if (!editableStates.includes(app.state)) return 'decision';
+  if (app.state === 'NEEDS_INFO') return 'form';
+  return app.productId ? 'form' : 'match';
+}
+
+export function ApplicationPage({ id, stage }: { id: string; stage?: Stage }) {
   const [view, setView] = useState<ApplicationView | null>(null);
   const [error, setError] = useState('');
-  /** Set after "Отправить": the processing screen submits, processes and animates the stages. */
+  /** Set after «Отправить»: the review stage submits, processes and replays the recorded stages. */
   const [processing, setProcessing] = useState(false);
   const load = useCallback((signal?: AbortSignal) => {
     setError('');
@@ -19,28 +31,31 @@ export function ApplicationPage({ id }: { id: string }) {
   }, [id]);
   useEffect(() => { const controller = new AbortController(); load(controller.signal); return () => controller.abort(); }, [load]);
 
-  if (error && !view) return <div className="cc-page"><ErrorNote error={error} onRetry={() => load()} /></div>;
-  if (!view) return <div className="cc-page"><Loading text="Загружаем заявку…" /></div>;
-  const state = view.application.state;
-  const showProcessing = processing || processingStates.includes(state);
-  const step = editableStates.includes(state) && !showProcessing ? 3 : 4;
-  return <div className="cc-page">
-    <nav className="cc-breadcrumbs"><a href="#/">Главная</a><span>Заявка {view.application.number}</span></nav>
-    <header className="cc-page-header">
+  if (error && !view) return <div className="op-page"><ErrorNote error={error} onRetry={() => load()} /></div>;
+  if (!view) return <div className="op-page"><Loading text="Загружаем заявку…" /></div>;
+  const reached = processing ? 'review' : reachedStage(view);
+  const reachedIndex = stages.indexOf(reached);
+  // A stage beyond the reached one is not available; processing always shows the review stage.
+  const shown: Stage = processing || reached === 'review' ? 'review'
+    : stage && stages.indexOf(stage) <= reachedIndex && stage !== 'review' ? stage : reached;
+  const go = (index: number) => { if (index <= reachedIndex && stages[index] !== 'review') navigate({ name: 'application', id, stage: stages[index] }); };
+  return <div className="op-page">
+    <nav className="op-breadcrumbs"><a href="#/">Кабинет</a><span>Заявка {view.application.number}</span></nav>
+    <header className="op-page-header">
       <div>
         <h1>Заявка {view.application.number}</h1>
-        <p className="cc-muted">{view.company.name} · ИНН {view.company.inn}</p>
+        <p className="op-muted">{view.company.name} · ИНН {view.company.inn} · {view.company.relationship === 'client' ? 'клиент банка' : 'не клиент банка'}</p>
       </div>
-      <div className="cc-status-box" aria-live="polite">
-        <StatusBadge state={state} />
-        <span><span className="cc-muted">Следующий шаг:</span> {view.status.next}</span>
+      <div className="op-status-box" aria-live="polite">
+        <StatusBadge state={view.application.state} />
+        <span><span className="op-muted">Следующий шаг:</span> {view.status.next}</span>
       </div>
     </header>
-    <FlowSteps current={step} />
-    {showProcessing
-      ? <ApplicationProcessing view={view} onDone={(next) => { setView(next); setProcessing(false); }} />
-      : editableStates.includes(state)
-        ? <ApplicationWorkspace view={view} onChange={setView} onSubmit={() => setProcessing(true)} />
-        : <ApplicationResult view={view} onChange={setView} />}
+    <FlowSteps current={stages.indexOf(shown)} reachable={reachedIndex} onSelect={processing ? undefined : go} />
+    {shown === 'need' && <NeedEdit view={view} onChange={setView} />}
+    {shown === 'match' && <MatchStep view={view} onChange={(next) => { setView(next); navigate({ name: 'application', id, stage: 'form' }); }} />}
+    {shown === 'form' && <FormStep view={view} onChange={setView} onSubmit={() => setProcessing(true)} />}
+    {shown === 'review' && <ApplicationProcessing view={view} onDone={(next) => { setView(next); setProcessing(false); navigate({ name: 'application', id, stage: next.status.editable ? 'form' : 'decision' }); }} />}
+    {shown === 'decision' && <ApplicationResult view={view} onChange={setView} />}
   </div>;
 }

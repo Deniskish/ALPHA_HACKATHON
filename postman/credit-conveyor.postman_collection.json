@@ -1,8 +1,8 @@
 {
   "info": {
-    "name": "Кредитный конвейер (демо)",
+    "name": "«Опора» — кредитный кабинет (демо)",
     "_postman_id": "8a4f0d2e-2c4b-4f7e-9d61-credit-demo",
-    "description": "Сценарии A–D демонстрационного кредитного конвейера. Все данные синтетические. Запускайте папки по порядку (Collection Runner).",
+    "description": "Сценарии A–F «Опоры»: клиенты A–D, не клиенты E–F, ML-риск, «Как улучшить заявку», объяснения, выдача и платёж (симуляция). Все данные синтетические. Запускайте папки по порядку (Collection Runner).",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -24,6 +24,14 @@
     },
     {
       "key": "appD",
+      "value": ""
+    },
+    {
+      "key": "appE",
+      "value": ""
+    },
+    {
+      "key": "appF",
       "value": ""
     }
   ],
@@ -84,7 +92,7 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
-                  "pm.test('3 products', () => pm.expect(pm.response.json().products.length).to.eql(3));"
+                  "pm.test('6 products', () => pm.expect(pm.response.json().products.length).to.eql(6));"
                 ]
               }
             }
@@ -162,7 +170,7 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
-                  "pm.test('4 companies', () => pm.expect(pm.response.json().companies.length).to.eql(4));"
+                  "pm.test('6 companies', () => pm.expect(pm.response.json().companies.length).to.eql(6));"
                 ]
               }
             }
@@ -239,6 +247,50 @@
               }
             }
           ]
+        },
+        {
+          "name": "Разбор потребности из текста",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/assistant/parse-need",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "assistant",
+                "parse-need"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"Хочу открыть вторую кофейню, купить оборудование и сделать ремонт. Нужно около 4 млн рублей\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('new location, 4 mln', () => { const n = pm.response.json(); pm.expect(n.purpose).to.eql('NEW_LOCATION'); pm.expect(n.amount).to.eql(4000000); });"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
@@ -284,6 +336,38 @@
                   "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
                   "pm.collectionVariables.set('appA', pm.response.json().application.id);",
                   "pm.test('state DATA_COLLECTION', () => pm.expect(pm.response.json().application.state).to.eql('DATA_COLLECTION'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A1a Подбор под заявку",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/applications/{{appA}}/matches",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "applications",
+                "{{appA}}",
+                "matches"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('recommended working capital', () => pm.expect(pm.response.json().matches.find((m) => m.recommended).product.id).to.eql('working-capital'));",
+                  "pm.test('rate = key + margin', () => { const p = pm.response.json().matches[0].pricing; pm.expect(p.rate).to.eql(p.keyRate + p.productMargin + p.riskPremium); });"
                 ]
               }
             }
@@ -581,6 +665,180 @@
               }
             }
           ]
+        },
+        {
+          "name": "A11 ML-оценка риска",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/applications/{{appA}}/risk",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "applications",
+                "{{appA}}",
+                "risk"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('LOW', () => pm.expect(pm.response.json().riskLevel).to.eql('LOW'));",
+                  "pm.test('factors', () => pm.expect(pm.response.json().topFactors.length).to.be.above(0));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A12 Объяснение решения",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/applications/{{appA}}/explanation?kind=decision",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "applications",
+                "{{appA}}",
+                "explanation"
+              ],
+              "query": [
+                {
+                  "key": "kind",
+                  "value": "decision"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('text', () => pm.expect(pm.response.json().text.length).to.be.above(40));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A13 Выдать (симуляция)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/applications/{{appA}}/issue",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "applications",
+                "{{appA}}",
+                "issue"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('state ACTIVE_FINANCING', () => pm.expect(pm.response.json().application.state).to.eql('ACTIVE_FINANCING'));",
+                  "pm.test('financing', () => pm.expect(pm.response.json().financing.remainingPrincipal).to.eql(3000000));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A14 Платёж (симуляция, Idempotency-Key)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "payment-{{appA}}-1"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/applications/{{appA}}/payments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "applications",
+                "{{appA}}",
+                "payments"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('1 paid', () => pm.expect(pm.response.json().financing.paidInstallments).to.eql(1));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "A15 Повтор того же платежа",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Idempotency-Key",
+                "value": "payment-{{appA}}-1"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/applications/{{appA}}/payments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "applications",
+                "{{appA}}",
+                "payments"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('replayed', () => pm.expect(pm.response.headers.get('Idempotent-Replayed')).to.eql('true'));",
+                  "pm.test('still 1 paid', () => pm.expect(pm.response.json().financing.paidInstallments).to.eql(1));"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
@@ -777,6 +1035,38 @@
                   "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
                   "pm.test('state COUNTER_OFFER', () => pm.expect(pm.response.json().application.state).to.eql('COUNTER_OFFER'));",
                   "pm.test('decision explained', () => pm.expect(pm.response.json().decision.reasons.length).to.be.above(0));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "B5a Как улучшить заявку",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/applications/{{appB}}/improvements",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "applications",
+                "{{appB}}",
+                "improvements"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('scenarios', () => pm.expect(pm.response.json().scenarios.length).to.be.above(0));",
+                  "pm.test('no promise', () => pm.expect(pm.response.json().disclaimer).to.include('не обещание'));"
                 ]
               }
             }
@@ -1311,6 +1601,654 @@
       ]
     },
     {
+      "name": "E — не клиент, APPROVED",
+      "item": [
+        {
+          "name": "E1 Компания по ИНН (не клиент)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/companies/0005000050",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "companies",
+                "0005000050"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('non_client', () => pm.expect(pm.response.json().company.relationship).to.eql('non_client'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E2 Создать заявку с показателями",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/applications",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "applications"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"companyInn\": \"0005000050\",\n  \"purpose\": \"NEW_LOCATION\",\n  \"requestedAmount\": 4000000,\n  \"requestedTermMonths\": 36,\n  \"purposeDescription\": \"Демо-заявка не клиента банка\",\n  \"declaredFinancials\": {\n    \"revenue\": 26000000,\n    \"expenses\": 21300000,\n    \"currentDebt\": 1200000,\n    \"activeLoans\": 1\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('appE', pm.response.json().application.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E3 Подбор",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/applications/{{appE}}/matches",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "applications",
+                "{{appE}}",
+                "matches"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('investment eligible', () => pm.expect(pm.response.json().matches.find((m) => m.product.id === 'investment').eligible).to.eql(true));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E4 Выбрать продукт",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/applications/{{appE}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "applications",
+                "{{appE}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productId\": \"investment\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E5 Документ BANK_STATEMENT",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/applications/{{appE}}/documents",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "applications",
+                "{{appE}}",
+                "documents"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"BANK_STATEMENT\",\n  \"fileName\": \"bank_statement.pdf\",\n  \"mimeType\": \"application/pdf\",\n  \"sizeBytes\": 2048,\n  \"textCharacters\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E6 Документ INVESTMENT_PLAN",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/applications/{{appE}}/documents",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "applications",
+                "{{appE}}",
+                "documents"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"INVESTMENT_PLAN\",\n  \"fileName\": \"investment_plan.pdf\",\n  \"mimeType\": \"application/pdf\",\n  \"sizeBytes\": 2048,\n  \"textCharacters\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E7 Документ FINANCIAL_STATEMENT",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/applications/{{appE}}/documents",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "applications",
+                "{{appE}}",
+                "documents"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"FINANCIAL_STATEMENT\",\n  \"fileName\": \"financial_statement.pdf\",\n  \"mimeType\": \"application/pdf\",\n  \"sizeBytes\": 2048,\n  \"textCharacters\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E8 Отправить",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/applications/{{appE}}/submit",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "applications",
+                "{{appE}}",
+                "submit"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('state SUBMITTED', () => pm.expect(pm.response.json().application.state).to.eql('SUBMITTED'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "E9 Рассмотреть",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/applications/{{appE}}/process",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "applications",
+                "{{appE}}",
+                "process"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('state APPROVED', () => pm.expect(pm.response.json().application.state).to.eql('APPROVED'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "F — не клиент, COUNTER_OFFER",
+      "item": [
+        {
+          "name": "F1 Компания по ИНН (не клиент)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/companies/0006000060",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "companies",
+                "0006000060"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('non_client', () => pm.expect(pm.response.json().company.relationship).to.eql('non_client'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "F2 Создать заявку с показателями",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/applications",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "applications"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"companyInn\": \"0006000060\",\n  \"purpose\": \"YOUNG_BUSINESS\",\n  \"requestedAmount\": 800000,\n  \"requestedTermMonths\": 12,\n  \"purposeDescription\": \"Демо-заявка не клиента банка\",\n  \"declaredFinancials\": {\n    \"revenue\": 6000000,\n    \"expenses\": 5100000,\n    \"currentDebt\": 0,\n    \"activeLoans\": 0\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('appF', pm.response.json().application.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "F3 Подбор",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/applications/{{appF}}/matches",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "applications",
+                "{{appF}}",
+                "matches"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('young-business eligible', () => pm.expect(pm.response.json().matches.find((m) => m.product.id === 'young-business').eligible).to.eql(true));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "F4 Выбрать продукт",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/applications/{{appF}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "applications",
+                "{{appF}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"productId\": \"young-business\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "F5 Документ BANK_STATEMENT",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/applications/{{appF}}/documents",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "applications",
+                "{{appF}}",
+                "documents"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"BANK_STATEMENT\",\n  \"fileName\": \"bank_statement.pdf\",\n  \"mimeType\": \"application/pdf\",\n  \"sizeBytes\": 2048,\n  \"textCharacters\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "F6 Документ FINANCIAL_STATEMENT",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/applications/{{appF}}/documents",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "applications",
+                "{{appF}}",
+                "documents"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"FINANCIAL_STATEMENT\",\n  \"fileName\": \"financial_statement.pdf\",\n  \"mimeType\": \"application/pdf\",\n  \"sizeBytes\": 2048,\n  \"textCharacters\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "F7 Отправить",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/applications/{{appF}}/submit",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "applications",
+                "{{appF}}",
+                "submit"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('state SUBMITTED', () => pm.expect(pm.response.json().application.state).to.eql('SUBMITTED'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "F8 Рассмотреть",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/applications/{{appF}}/process",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "applications",
+                "{{appF}}",
+                "process"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('state COUNTER_OFFER', () => pm.expect(pm.response.json().application.state).to.eql('COUNTER_OFFER'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
       "name": "Банковская сторона",
       "item": [
         {
@@ -1369,6 +2307,37 @@
                 "exec": [
                   "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
                   "pm.test('checks and scoring', () => { const b = pm.response.json(); pm.expect(b.checks.length).to.eql(3); pm.expect(b.scoring.riskLevel).to.eql('HIGH'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Заявка A: ML-риск на банковской стороне",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/bank/applications/{{appA}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "bank",
+                "applications",
+                "{{appA}}"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('risk', () => pm.expect(pm.response.json().riskAssessment.modelVersion).to.be.a('string'));"
                 ]
               }
             }

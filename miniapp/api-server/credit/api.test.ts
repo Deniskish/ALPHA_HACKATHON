@@ -41,11 +41,11 @@ async function journey(call: Parameters<Parameters<typeof api>[0]>[0], inn: stri
 
 test('health, products and synthetic demo companies are available without external services', () => api(async (call) => {
   const health = await call('GET', '/health');
-  assert.equal(health.status, 200); assert.deepEqual(health.body.credit, { products: 3, demoCompanies: 4, storage: 'sqlite' });
+  assert.equal(health.status, 200); assert.deepEqual(health.body.credit, { products: 6, demoCompanies: 6, storage: 'sqlite', keyRate: 16, riskModel: null });
   const products = await call('GET', '/credit/products');
-  assert.equal(products.body.products.length, 3); assert.equal(products.body.syntheticLabel, 'Синтетические демонстрационные данные');
+  assert.equal(products.body.products.length, 6); assert.equal(products.body.keyRate, 16); assert.equal(products.body.syntheticLabel, 'Синтетические демонстрационные данные');
   const demo = await call('GET', '/demo/companies');
-  assert.deepEqual(demo.body.companies.map((c: Json) => c.demo.scenario), ['APPROVED', 'COUNTER_OFFER', 'NEEDS_INFO', 'REJECTED']);
+  assert.deepEqual(demo.body.companies.map((c: Json) => c.demo.scenario), ['APPROVED', 'COUNTER_OFFER', 'NEEDS_INFO', 'REJECTED', 'APPROVED', 'COUNTER_OFFER']);
   assert.ok(demo.body.companies.every((c: Json) => c.syntheticLabel === 'Синтетические демонстрационные данные'));
   assert.equal((await call('GET', '/companies/0001000010')).body.company.name, 'ООО «Демо Хлебозавод»');
   assert.equal((await call('GET', '/companies/7707083893')).status, 404);
@@ -115,7 +115,7 @@ test('E2E A: APPROVED → offer accepted → signing simulated → COMPLETED', (
   const id = result.application.id;
   assert.equal(result.application.state, 'APPROVED'); assert.equal(result.decision.offer.amount, 3_000_000);
   assert.deepEqual(result.timeline.filter((e: Json) => e.type === 'STATE_CHANGED').map((e: Json) => e.message).slice(-6),
-    ['Заявка отправлена', 'Проверяем данные компании', 'Получаем сведения', 'Оцениваем заявку', 'Формируем решение', 'Заявка одобрена']);
+    ['Проверяем данные компании', 'Получаем сведения', 'Оцениваем риски', 'Оцениваем заявку', 'Формируем решение', 'Заявка одобрена']);
   const scoring = (await call('GET', `/applications/${id}/scoring`)).body;
   assert.ok(scoring.score >= 75); assert.equal(scoring.factors.length, 6);
   assert.equal((await call('GET', `/applications/${id}/decision`)).body.outcome, 'APPROVED');
@@ -127,7 +127,7 @@ test('E2E A: APPROVED → offer accepted → signing simulated → COMPLETED', (
   assert.deepEqual(bank.checks.map((c: Json) => [c.provider, c.status]), [['FNS', 'OK'], ['BKI', 'OK'], ['FINANCE', 'OK']]);
   assert.equal(bank.scoring.score, scoring.score);
   assert.deepEqual(bank.events.filter((e: Json) => e.type === 'STATE_CHANGED').map((e: Json) => e.toState),
-    ['DATA_COLLECTION', 'READY_TO_SUBMIT', 'SUBMITTED', 'VALIDATING', 'ENRICHING', 'SCORING', 'DECISION', 'APPROVED', 'OFFER_ACCEPTED', 'COMPLETED']);
+    ['DATA_COLLECTION', 'READY_TO_SUBMIT', 'SUBMITTED', 'VALIDATING', 'ENRICHING', 'RISK_ASSESSMENT', 'SCORING', 'DECISION', 'APPROVED', 'OFFER_ACCEPTED', 'COMPLETED']);
 }));
 
 test('E2E B: COUNTER_OFFER changes amount and term; accepting it stores the offered terms', () => api(async (call) => {

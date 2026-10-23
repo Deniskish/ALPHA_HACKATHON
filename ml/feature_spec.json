@@ -1,0 +1,27 @@
+{
+  "description": "Shared contract between the Python dataset/training code and the TypeScript inference (miniapp/api-server/credit/ml-model.ts). Demo model on synthetic data, not a bank model.",
+  "target": "default12m",
+  "numeric": [
+    { "name": "businessAgeMonths", "source": "businessAgeMonths", "monotone": -1, "label": "Срок работы бизнеса" },
+    { "name": "employees", "source": "employees", "monotone": 0, "label": "Число сотрудников" },
+    { "name": "logRevenue", "source": "annualRevenue", "transform": "log10", "monotone": 0, "label": "Масштаб выручки" },
+    { "name": "profitMargin", "source": "profitMargin", "clip": [-1, 1], "monotone": -1, "label": "Рентабельность" },
+    { "name": "debtToRevenue", "source": "debtToRevenue", "clip": [0, 3], "monotone": 1, "label": "Долговая нагрузка" },
+    { "name": "activeLoans", "source": "activeLoans", "clip": [0, 20], "monotone": 0, "label": "Число действующих кредитов" },
+    { "name": "latePayments12m", "source": "latePayments12m", "clip": [0, 24], "monotone": 1, "label": "Просрочки за 12 месяцев" },
+    { "name": "maxOverdueDays", "source": "maxOverdueDays", "clip": [0, 365], "monotone": 1, "label": "Длительность просрочки" },
+    { "name": "overdueToRevenue", "source": "overdueToRevenue", "clip": [0, 1], "monotone": 1, "label": "Просроченная задолженность" },
+    { "name": "amountToRevenue", "source": "amountToRevenue", "clip": [0, 3], "monotone": 1, "label": "Сумма относительно выручки" },
+    { "name": "requestedTermMonths", "source": "requestedTermMonths", "clip": [1, 120], "monotone": 0, "label": "Срок кредита" },
+    { "name": "paymentToProfit", "source": "paymentToProfit", "clip": [0, 5], "monotone": 1, "label": "Платёж относительно прибыли" },
+    { "name": "keyRate", "source": "keyRate", "clip": [0, 30], "monotone": 1, "label": "Уровень ключевой ставки" }
+  ],
+  "categorical": [
+    { "name": "legalForm", "categories": ["OOO", "AO", "IP", "OTHER"], "label": "Организационно-правовая форма" },
+    { "name": "industry", "categories": ["agriculture", "manufacturing", "construction", "retail", "food_service", "transport", "it", "services"], "label": "Отрасль" },
+    { "name": "region", "categories": ["capital", "large", "other"], "label": "Регион" },
+    { "name": "purpose", "categories": ["WORKING_CAPITAL", "EQUIPMENT", "NEW_LOCATION", "EXPANSION", "INVESTMENT_PROJECT", "REFINANCING", "YOUNG_BUSINESS", "OTHER"], "label": "Цель кредита" }
+  ],
+  "industryRisk": { "agriculture": 1.15, "manufacturing": 1.0, "construction": 1.3, "retail": 1.1, "food_service": 1.25, "transport": 1.1, "it": 0.9, "services": 1.0 },
+  "riskLevels": { "mediumFrom": 0.1, "highFrom": 0.2 }
+}

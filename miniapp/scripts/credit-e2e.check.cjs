@@ -1,4 +1,6 @@
-// Browser E2E of the credit conveyor against a running frontend + API (no mocks: real API and SQLite).
+// Browser E2E of «Опора» against a running frontend + API (no mocks: real API, SQLite and the ML risk model).
+// Five visible steps of one application, clients (A–D) and non-clients (E–F), decision, improvements, simulated
+// issue and payment, the bank side. Desktop 1280 and phone 390.
 // OPORA_UI_URL=http://127.0.0.1:3000 node scripts/credit-e2e.check.cjs
 const { chromium, webkit } = require('playwright');
 const assert = require('node:assert/strict');
@@ -15,29 +17,59 @@ async function noOverflow(page) {
   assert.ok(overflow <= 1, `horizontal overflow ${overflow}px`);
 }
 
-async function startApplication(page, companyName) {
+async function start(page) {
   await page.goto(url + '/#/');
+  await page.evaluate(() => sessionStorage.clear());
+  await page.reload();
+  await page.getByText('Демонстрационный сценарий: реальной авторизации').waitFor();
+}
+
+async function loginClient(page, name) {
+  await start(page);
+  await page.getByText('Я клиент Альфа-Банка', { exact: true }).click();
+  await page.getByRole('button', { name: `Войти как ${name}` }).click();
+  await page.getByText('Клиент банка · демо').waitFor();
+}
+
+async function loginNonClient(page, inn) {
+  await start(page);
+  await page.getByText('Я пока не клиент Альфа-Банка', { exact: true }).click();
+  await page.getByRole('button', { name: new RegExp(inn) }).click();
+  await page.getByRole('button', { name: 'Найти' }).click();
+  await page.getByText('Проверьте сведения о компании').waitFor();
+  await page.getByRole('button', { name: 'Данные верны, продолжить' }).click();
+  await page.getByText('Пока не клиент банка · демо').waitFor();
+}
+
+/** Steps 1–4: need → matching → questionnaire → review. */
+async function apply(page, { nonClient = false, text } = {}) {
   await page.getByRole('button', { name: 'Получить финансирование' }).click();
-  await page.getByText('Синтетические демонстрационные данные').first().waitFor();
-  await page.getByRole('button', { name: `Выбрать ${companyName}` }).click();
-  await page.getByRole('heading', { name: 'Профиль бизнеса' }).waitFor();
-  await page.getByRole('button', { name: 'Подобрать продукты' }).click();
-  const recommended = page.locator('.cc-product[data-recommended="true"]');
-  await recommended.waitFor();
-  assert.match(await recommended.innerText(), /Почему подходит/);
-  await recommended.getByRole('button', { name: 'Выбрать продукт' }).click();
-  await page.getByRole('heading', { name: 'Готовность заявки' }).waitFor();
-  await page.getByRole('button', { name: 'Заполнить демо-данными' }).click();
-  const submit = page.getByRole('button', { name: 'Отправить заявку' });
-  await page.waitForFunction(() => !document.querySelector('.cc-submit')?.hasAttribute('disabled'));
-  await submit.click();
-  await page.getByRole('heading', { name: 'Обрабатываем заявку' }).waitFor();
-  for (const stage of ['Проверяем данные компании', 'Получаем сведения']) await page.getByText(stage, { exact: true }).waitFor();
+  const steps = await page.locator('.op-steps').innerText();
+  for (const step of ['Потребность', 'Подбор', 'Анкета', 'Рассмотрение', 'Решение']) assert.match(steps, new RegExp(step));
+  if (text) {
+    await page.locator('textarea').first().fill(text);
+    await page.getByRole('button', { name: 'Разобрать описание' }).click();
+    await page.getByText(/Распознано по правилам|AI-ассистент/).waitFor();
+  }
+  if (nonClient) await page.getByRole('button', { name: 'Заполнить демо-данными' }).click();
+  await page.getByRole('button', { name: 'Подобрать финансирование' }).click();
+  const product = page.locator('.op-product[data-recommended="true"]');
+  await product.waitFor();
+  assert.match(await product.innerText(), /Почему подходит/);
+  assert.match(await product.innerText(), /ключевая/);
+  await noOverflow(page);
+  await product.getByRole('button', { name: 'Выбрать продукт' }).click();
+  await page.getByText('Готовность анкеты').waitFor();
+  await page.locator('.op-workspace-side').getByRole('button', { name: 'Заполнить демо-данными' }).click();
+  await page.waitForFunction(() => !document.querySelector('.op-submit')?.hasAttribute('disabled'), null, { timeout: 15000 });
+  await page.locator('.op-submit').click();
+  await page.getByText('Рассматриваем заявку').waitFor();
+  await page.getByText('Оцениваем риски', { exact: true }).waitFor();
 }
 
 async function resultOf(page) {
-  await page.waitForFunction(() => document.querySelector('.cc-result[data-outcome]') || document.querySelector('.cc-workspace .cc-alert-warning'), null, { timeout: 15000 });
-  return page.locator('.cc-result').getAttribute('data-outcome').catch(() => 'NEEDS_INFO');
+  await page.waitForFunction(() => document.querySelector('.op-result[data-outcome]') || document.querySelector('.op-workspace .op-alert-warning'), null, { timeout: 20000 });
+  return (await page.locator('.op-result').getAttribute('data-outcome').catch(() => null)) ?? 'NEEDS_INFO';
 }
 
 async function run(engine, width, height) {
@@ -47,68 +79,91 @@ async function run(engine, width, height) {
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
   const label = `${engine}-${width}`;
+  const shot = (name) => page.screenshot({ path: path.join(out, `${label}-${name}.png`), fullPage: true });
   try {
-    // A — APPROVED → accept → simulated signing.
-    await startApplication(page, 'ООО «Демо Хлебозавод»');
+    // A — client, APPROVED → accept → simulated signing → simulated issue → payment → next opportunities.
+    await loginClient(page, 'ООО «Демо Хлебозавод»');
+    await apply(page);
     assert.equal(await resultOf(page), 'APPROVED');
-    await page.getByText(/Мы готовы выдать 3\s000\s000\s₽/).waitFor();
-    await noOverflow(page);
-    await page.screenshot({ path: path.join(out, `${label}-a-approved.png`), fullPage: true });
+    await page.getByText(/Мы готовы выдать 3\s000\s000\s₽/).first().waitFor();
+    await page.locator('.op-explanation').waitFor();
+    await noOverflow(page); await shot('a-approved');
     await page.getByRole('button', { name: 'Принять предложение' }).click();
     await page.getByRole('button', { name: 'Подписать договор (симуляция)' }).click();
-    await page.getByRole('heading', { name: 'Договор подписан' }).waitFor();
+    await page.getByRole('button', { name: 'Получить финансирование (симуляция)' }).click();
+    await page.getByText('Следующие возможности').waitFor();
+    await page.getByRole('button', { name: 'Смоделировать очередной платёж' }).click();
+    await page.getByText(/Оплачено 1 из 12 платежей/).waitFor();
+    await noOverflow(page); await shot('a-financing');
 
-    // B — COUNTER_OFFER with a lower amount and a longer term.
-    await startApplication(page, 'ООО «Демо Техсервис»');
+    // B — client, COUNTER_OFFER with «Как улучшить заявку».
+    await loginClient(page, 'ООО «Демо Техсервис»');
+    await apply(page);
     assert.equal(await resultOf(page), 'COUNTER_OFFER');
-    assert.match(await page.locator('.cc-result-summary').innerText(), /вместо запрошенных 15\s000\s000\s₽/);
-    await page.screenshot({ path: path.join(out, `${label}-b-counter-offer.png`), fullPage: true });
+    assert.match(await page.locator('.op-result-summary').innerText(), /вместо запрошенных 15\s000\s000\s₽/);
+    await page.getByRole('heading', { name: 'Как улучшить заявку' }).waitFor();
+    await page.locator('.op-scenario[data-current="false"]').first().waitFor();
+    assert.match(await page.locator('.op-improve').innerText(), /Расчётные сценарии/);
+    assert.doesNotMatch(await page.locator('.op-improve').innerText(), /гарантир/i);
+    await noOverflow(page); await shot('b-counter-offer');
     await page.getByRole('button', { name: 'Принять встречное предложение' }).click();
     await page.getByText('Предложение принято', { exact: true }).first().waitFor();
 
-    // C — NEEDS_INFO → add financials and a statement → reprocess → APPROVED.
-    await startApplication(page, 'ООО «Демо Агро»');
+    // C — client without financial data: NEEDS_INFO → add figures and a statement → APPROVED.
+    await loginClient(page, 'ООО «Демо Агро»');
+    await apply(page);
     assert.equal(await resultOf(page), 'NEEDS_INFO');
-    const banner = page.locator('.cc-workspace .cc-alert-warning');
-    assert.match(await banner.innerText(), /выручку, расходы/);
-    await page.screenshot({ path: path.join(out, `${label}-c-needs-info.png`), fullPage: true });
+    await shot('c-needs-info');
     await page.getByLabel('Выручка, ₽').fill('18000000');
     await page.getByLabel('Расходы, ₽').fill('13200000');
     await page.getByLabel('Текущие кредиты и займы, ₽').fill('500000');
     await page.getByLabel('Текущие кредиты и займы, ₽').blur();
-    await page.waitForFunction(() => document.querySelector('[data-state]')?.textContent?.includes('Заполнение') || document.querySelector('[data-state="READY_TO_SUBMIT"]'));
-    await page.locator('.cc-documents li', { hasText: 'Бухгалтерская отчётность' }).getByRole('button', { name: 'Демо-файл' }).click();
-    await page.waitForFunction(() => !document.querySelector('.cc-submit')?.hasAttribute('disabled'));
-    await page.getByRole('button', { name: 'Отправить заявку' }).click();
+    await page.locator('.op-documents li', { hasText: 'Бухгалтерская отчётность' }).getByRole('button', { name: 'Демо-файл' }).click();
+    await page.waitForFunction(() => !document.querySelector('.op-submit')?.hasAttribute('disabled'), null, { timeout: 15000 });
+    await page.locator('.op-submit').click();
     assert.equal(await resultOf(page), 'APPROVED');
 
-    // D — REJECTED with an explanation.
-    await startApplication(page, 'ООО «Демо Ремстрой»');
+    // D — client, REJECTED with reasons.
+    await loginClient(page, 'ООО «Демо Ремстрой»');
+    await apply(page);
     assert.equal(await resultOf(page), 'REJECTED');
-    assert.match(await page.locator('.cc-reasons').innerText(), /просрочка/);
-    await page.screenshot({ path: path.join(out, `${label}-d-rejected.png`), fullPage: true });
+    assert.match(await page.locator('.op-result-main .op-reasons').innerText(), /просрочк/i);
+    await shot('d-rejected');
 
-    // Bank side shows the internal process of the same applications.
+    // E — non-client found by INN, free-text need, own figures → APPROVED.
+    await loginNonClient(page, '0005000050');
+    await apply(page, { nonClient: true, text: 'Хочу открыть вторую кофейню, купить оборудование и сделать ремонт. Нужно около 4 млн рублей' });
+    assert.equal(await resultOf(page), 'APPROVED');
+    await shot('e-nonclient-approved');
+
+    // F — young non-client business → COUNTER_OFFER on the young-business product.
+    await loginNonClient(page, '0006000060');
+    await apply(page, { nonClient: true });
+    assert.equal(await resultOf(page), 'COUNTER_OFFER');
+    assert.match(await page.locator('.op-result-main').innerText(), /Развитие молодого бизнеса/);
+
+    // Bank side: the same applications from inside, with mock checks, ML risk, scoring, decision and transitions.
     await page.getByRole('button', { name: 'Банковская сторона' }).click();
-    await page.locator('.cc-table tbody tr').first().waitFor();
-    assert.ok(await page.locator('.cc-table tbody tr').count() >= 4);
-    await page.locator('.cc-table tbody tr', { hasText: 'Демо Ремстрой' }).first().click();
-    for (const title of ['Внешние проверки (mock)', 'Скоринг', 'Кредитное решение', 'История событий'])
-      await page.getByRole('heading', { name: title }).waitFor();
-    assert.match(await page.locator('.cc-bank-detail').innerText(), /CRITICAL_OVERDUE|просрочка/i);
-    assert.match(await page.locator('.cc-events').innerText(), /DECISION → REJECTED/);
-    await noOverflow(page);
-    await page.screenshot({ path: path.join(out, `${label}-bank.png`), fullPage: true });
+    const rows = width >= 900 ? page.locator('.op-table tbody tr') : page.locator('.op-bank .op-list .op-application-card');
+    await rows.first().waitFor();
+    assert.ok(await rows.count() >= 6);
+    await rows.filter({ hasText: 'Демо Ремстрой' }).first().click();
+    await page.locator('.op-pipeline').getByText('RESULT: REJECTED').waitFor();
+    await page.getByRole('tab', { name: 'Риск и скоринг' }).click();
+    await page.getByText('ML-модель риска').waitFor();
+    assert.match(await page.locator('.op-bank-detail').innerText(), /вероятность проблемного обслуживания/);
+    await page.getByRole('tab', { name: 'История' }).click();
+    assert.match(await page.locator('.op-events').innerText(), /DECISION → REJECTED/);
+    await noOverflow(page); await shot('bank');
 
-    // Dashboard lists active applications and recent results.
+    // Dashboard of the current company lists its applications.
     await page.getByRole('button', { name: 'Клиент' }).click();
-    await page.getByRole('heading', { name: 'Активные заявки' }).waitFor();
     await page.getByRole('heading', { name: 'Последние результаты' }).waitFor();
     await noOverflow(page);
     assert.deepEqual(errors, []);
     console.log(`${label} PASS`);
   } catch (error) {
-    await page.screenshot({ path: path.join(out, `${label}-failure.png`), fullPage: true }).catch(() => {});
+    await shot('failure').catch(() => {});
     throw error;
   } finally { await browser.close(); }
 }

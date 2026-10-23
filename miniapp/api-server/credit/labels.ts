@@ -7,6 +7,7 @@ export const documentLabels: Record<DocumentType, string> = {
   FINANCIAL_STATEMENT: 'Бухгалтерская отчётность за последний год',
   REGISTRY_EXTRACT: 'Выписка из ЕГРЮЛ/ЕГРИП',
   INVESTMENT_PLAN: 'Описание проекта или коммерческое предложение поставщика',
+  LOAN_AGREEMENT: 'Кредитные договоры, которые нужно рефинансировать',
   OTHER: 'Другой документ',
 };
 
@@ -19,13 +20,15 @@ export const clientStateLabels: Record<ApplicationState, { title: string; next: 
   VALIDATING: { title: 'Проверяем данные компании', next: 'Дождитесь окончания проверки' },
   NEEDS_INFO: { title: 'Нужны дополнительные данные', next: 'Дополните заявку и отправьте её повторно' },
   ENRICHING: { title: 'Получаем сведения', next: 'Дождитесь окончания проверки' },
+  RISK_ASSESSMENT: { title: 'Оцениваем риски', next: 'Дождитесь окончания проверки' },
   SCORING: { title: 'Оцениваем заявку', next: 'Дождитесь окончания проверки' },
   DECISION: { title: 'Формируем решение', next: 'Решение будет готово через несколько секунд' },
   APPROVED: { title: 'Одобрено', next: 'Примите предложение' },
   COUNTER_OFFER: { title: 'Встречное предложение', next: 'Ознакомьтесь с условиями и примите предложение' },
   REJECTED: { title: 'Отказ', next: 'Ознакомьтесь с причинами; можно подать новую заявку позже' },
   OFFER_ACCEPTED: { title: 'Предложение принято', next: 'Подпишите договор (подписание моделируется)' },
-  COMPLETED: { title: 'Договор подписан', next: 'Сделка оформлена в демонстрационном режиме' },
+  COMPLETED: { title: 'Договор подписан', next: 'Получите финансирование (выдача моделируется)' },
+  ACTIVE_FINANCING: { title: 'Финансирование выдано', next: 'Следите за графиком платежей и новыми возможностями' },
 };
 
 export const outcomeLabels: Record<DecisionOutcome, string> = {

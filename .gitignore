@@ -43,3 +43,9 @@ miniapp/public/ocr/
 *.sqlite
 *.sqlite-wal
 *.sqlite-shm
+
+# ML: local virtualenv, regenerated dataset (python ml/generate_dataset.py) and model binaries.
+ml/.venv/
+ml/data/
+ml/artifacts/
+__pycache__/

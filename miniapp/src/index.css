@@ -1,4 +1,3 @@
-/* Cascade: control primitives first, then the palette, then the credit cabinet. */
-@import './shared/styles/control-base.css';
+/* Cascade: typography tokens, then the credit cabinet. */
 @import './shared/styles/tokens.css';
 @import './credit/credit.css';

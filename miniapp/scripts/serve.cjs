@@ -5,7 +5,7 @@ const { createProxyMiddleware } = require('http-proxy-middleware');
 const path = require('node:path');
 const fs = require('node:fs');
 
-function createApp({ root = path.resolve(__dirname, '../dist'), api = 'http://127.0.0.1:3002' } = {}) {
+function createApp({ root = path.resolve(__dirname, '../dist'), api = process.env.API_URL || 'http://127.0.0.1:3002' } = {}) {
   if (!fs.existsSync(path.join(root, 'index.html'))) throw new Error('Run npm run build before starting the frontend');
   const app = express();
   app.disable('x-powered-by');

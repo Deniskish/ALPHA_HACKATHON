@@ -1,0 +1,286 @@
+{
+  "dataset": {
+    "rows": 60000,
+    "testRows": 9000,
+    "defaultRate": 0.079,
+    "seed": 2026,
+    "split": "train 70% / validation 15% / test 15%, stratified"
+  },
+  "oracleCeiling": {
+    "rocAuc": 0.8964,
+    "prAuc": 0.5313
+  },
+  "models": {
+    "logistic_regression": {
+      "model": "Logistic Regression (standardized, L2)",
+      "rocAuc": 0.8742,
+      "prAuc": 0.4815,
+      "brier": 0.05428,
+      "logLoss": 0.19222,
+      "meanPredicted": 0.0791,
+      "atPolicyThreshold": {
+        "threshold": 0.2,
+        "precision": 0.3594,
+        "recall": 0.5941,
+        "f1": 0.4479,
+        "flaggedShare": 0.1308,
+        "accuracyReferenceOnly": 0.8841,
+        "confusionMatrix": {
+          "tn": 7534,
+          "fp": 754,
+          "fn": 289,
+          "tp": 423
+        }
+      },
+      "atF1Threshold": {
+        "threshold": 0.2425,
+        "precision": 0.4073,
+        "recall": 0.5309,
+        "f1": 0.461,
+        "flaggedShare": 0.1031,
+        "accuracyReferenceOnly": 0.9018,
+        "confusionMatrix": {
+          "tn": 7738,
+          "fp": 550,
+          "fn": 334,
+          "tp": 378
+        }
+      },
+      "calibration": [
+        {
+          "meanPredicted": 0.0047,
+          "observedRate": 0.0,
+          "count": 900
+        },
+        {
+          "meanPredicted": 0.008,
+          "observedRate": 0.01,
+          "count": 900
+        },
+        {
+          "meanPredicted": 0.011,
+          "observedRate": 0.0111,
+          "count": 900
+        },
+        {
+          "meanPredicted": 0.0144,
+          "observedRate": 0.02,
+          "count": 900
+        },
+        {
+          "meanPredicted": 0.0187,
+          "observedRate": 0.0156,
+          "count": 900
+        },
+        {
+          "meanPredicted": 0.0252,
+          "observedRate": 0.0211,
+          "count": 900
+        },
+        {
+          "meanPredicted": 0.0374,
+          "observedRate": 0.04,
+          "count": 900
+        },
+        {
+          "meanPredicted": 0.0692,
+          "observedRate": 0.09,
+          "count": 900
+        },
+        {
+          "meanPredicted": 0.1741,
+          "observedRate": 0.17,
+          "count": 900
+        },
+        {
+          "meanPredicted": 0.4289,
+          "observedRate": 0.4133,
+          "count": 900
+        }
+      ]
+    },
+    "lightgbm": {
+      "model": "LightGBM (monotone constraints)",
+      "rocAuc": 0.8756,
+      "prAuc": 0.4807,
+      "brier": 0.05422,
+      "logLoss": 0.19128,
+      "meanPredicted": 0.0795,
+      "atPolicyThreshold": {
+        "threshold": 0.2,
+        "precision": 0.3628,
+        "recall": 0.5941,
+        "f1": 0.4505,
+        "flaggedShare": 0.1296,
+        "accuracyReferenceOnly": 0.8853,
+        "confusionMatrix": {
+          "tn": 7545,
+          "fp": 743,
+          "fn": 289,
+          "tp": 423
+        }
+      },
+      "atF1Threshold": {
+        "threshold": 0.2129,
+        "precision": 0.3792,
+        "recall": 0.573,
+        "f1": 0.4564,
+        "flaggedShare": 0.1196,
+        "accuracyReferenceOnly": 0.892,
+        "confusionMatrix": {
+          "tn": 7620,
+          "fp": 668,
+          "fn": 304,
+          "tp": 408
+        }
+      },
+      "calibration": [
+        {
+          "meanPredicted": 0.0032,
+          "observedRate": 0.0011,
+          "count": 900
+        },
+        {
+          "meanPredicted": 0.0055,
+          "observedRate": 0.0089,
+          "count": 900
+        },
+        {
+          "meanPredicted": 0.0079,
+          "observedRate": 0.0089,
+          "count": 900
+        },
+        {
+          "meanPredicted": 0.0112,
+          "observedRate": 0.0211,
+          "count": 900
+        },
+        {
+          "meanPredicted": 0.0159,
+          "observedRate": 0.0156,
+          "count": 900
+        },
+        {
+          "meanPredicted": 0.0231,
+          "observedRate": 0.0244,
+          "count": 900
+        },
+        {
+          "meanPredicted": 0.0375,
+          "observedRate": 0.0333,
+          "count": 900
+        },
+        {
+          "meanPredicted": 0.0777,
+          "observedRate": 0.0811,
+          "count": 900
+        },
+        {
+          "meanPredicted": 0.1753,
+          "observedRate": 0.1756,
+          "count": 900
+        },
+        {
+          "meanPredicted": 0.4382,
+          "observedRate": 0.4211,
+          "count": 900
+        }
+      ]
+    }
+  },
+  "comparison": {
+    "lightgbmMinusLogreg": {
+      "rocAuc": {
+        "meanDiff": 0.0014,
+        "ci95": [
+          -0.0019,
+          0.0043
+        ]
+      },
+      "prAuc": {
+        "meanDiff": -0.0005,
+        "ci95": [
+          -0.0118,
+          0.0107
+        ]
+      }
+    },
+    "bootstrapRounds": 500
+  },
+  "selection": {
+    "validation": {
+      "logistic_regression": {
+        "rocAuc": 0.8668,
+        "prAuc": 0.4482,
+        "brier": 0.05621
+      },
+      "lightgbm": {
+        "rocAuc": 0.8652,
+        "prAuc": 0.451,
+        "brier": 0.05597
+      }
+    },
+    "selected": "lightgbm",
+    "rule": "max validation PR-AUC, then min Brier",
+    "bestIteration": 176
+  },
+  "explainability": {
+    "lightgbmGainImportance": {
+      "paymentToProfit": 0.50261,
+      "latePayments12m": 0.14573,
+      "profitMargin": 0.11396,
+      "maxOverdueDays": 0.06701,
+      "debtToRevenue": 0.04152,
+      "keyRate": 0.0221,
+      "logRevenue": 0.0185,
+      "businessAgeMonths": 0.01659,
+      "overdueToRevenue": 0.01398,
+      "industry": 0.01337,
+      "employees": 0.01312,
+      "requestedTermMonths": 0.00865,
+      "purpose": 0.00851,
+      "amountToRevenue": 0.00473,
+      "activeLoans": 0.00362,
+      "legalForm": 0.00302,
+      "region": 0.00297
+    },
+    "lightgbmMeanAbsShap": {
+      "paymentToProfit": 0.87834,
+      "profitMargin": 0.42015,
+      "debtToRevenue": 0.21044,
+      "latePayments12m": 0.20722,
+      "keyRate": 0.19825,
+      "maxOverdueDays": 0.16305,
+      "industry": 0.14231,
+      "businessAgeMonths": 0.12694,
+      "purpose": 0.08893,
+      "employees": 0.04539,
+      "logRevenue": 0.04318,
+      "amountToRevenue": 0.03705,
+      "region": 0.03515,
+      "legalForm": 0.02688,
+      "requestedTermMonths": 0.02226,
+      "overdueToRevenue": 0.02175,
+      "activeLoans": 0.02138
+    },
+    "logregStandardizedCoefficients": {
+      "paymentToProfit": 0.8049,
+      "profitMargin": -0.5039,
+      "latePayments12m": 0.4373,
+      "keyRate": 0.2602,
+      "debtToRevenue": 0.2158,
+      "businessAgeMonths": -0.1311,
+      "maxOverdueDays": 0.13,
+      "industry=it": -0.106,
+      "overdueToRevenue": 0.102,
+      "requestedTermMonths": -0.0812,
+      "industry=construction": 0.0804,
+      "purpose=YOUNG_BUSINESS": 0.0692
+    }
+  },
+  "notes": [
+    "Synthetic data, demo model: not a bank model and not a bank's risk policy.",
+    "Accuracy is shown only for reference; with ~8% positives it is not a meaningful quality metric.",
+    "WAPE is a regression/forecast metric and is not used for a binary default target."
+  ]
+}

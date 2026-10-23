@@ -15,11 +15,11 @@ const assert = require('node:assert/strict');
   assert.equal(health.status, 200);
   const api = await health.json();
   assert.equal(api.status, 'ok');
-  assert.equal(api.credit?.demoCompanies, 4, 'Synthetic demo companies must be seeded');
+  assert.equal(api.credit?.demoCompanies, 6, 'Synthetic demo companies must be seeded');
   const products = await fetch(new URL('/api/credit/products', origin), { headers: { 'Accept-Encoding': 'gzip' }, signal: AbortSignal.timeout(15000) });
   assert.equal(products.status, 200, 'Credit products must be served without external services');
   assert.equal(products.headers.get('content-encoding'), 'gzip', 'API JSON must be compressed');
-  assert.equal((await products.json()).products.length, 3);
+  assert.equal((await products.json()).products.length, 6);
   if (process.env.EXPECTED_RELEASE_SHA) {
     assert.equal(api.revision, process.env.EXPECTED_RELEASE_SHA, 'API must run the deployed commit');
     const version = await fetch(new URL('/version.json', origin), { signal: AbortSignal.timeout(10000), cache: 'no-store' });

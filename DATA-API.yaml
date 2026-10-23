@@ -1,7 +1,7 @@
 # Repeatable public read-only checks of the credit cabinet API. All data is synthetic.
 schemaVersion: '1.0'
 solution:
-  name: Кредитный кабинет предпринимателя (демо)
+  name: «Опора» — умный кредитный кабинет для бизнеса (демо)
 api:
   baseUrl: http://localhost:3002
   openapi: ./openapi.yaml

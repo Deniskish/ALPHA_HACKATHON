@@ -5,7 +5,7 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import type {
   ApplicationDocument, ApplicationEvent, ApplicationEventType, ApplicationState, Company, CreditApplication,
-  CreditDecision, CreditProduct, ExternalCheck, ScoringResult,
+  CreditDecision, CreditProduct, ExternalCheck, RiskAssessment, ScoringResult,
 } from './types';
 
 type Row = Record<string, unknown>;
@@ -55,7 +55,24 @@ export class CreditStore {
         id TEXT PRIMARY KEY, application_id TEXT NOT NULL REFERENCES credit_applications(id), sequence INTEGER NOT NULL,
         type TEXT NOT NULL, from_state TEXT, to_state TEXT, message TEXT NOT NULL, payload_json TEXT NOT NULL,
         created_at TEXT NOT NULL, UNIQUE(application_id, sequence));
-      CREATE INDEX IF NOT EXISTS applications_by_company ON credit_applications(company_inn);`);
+      CREATE INDEX IF NOT EXISTS applications_by_company ON credit_applications(company_inn);
+      CREATE TABLE IF NOT EXISTS risk_assessments (
+        id TEXT PRIMARY KEY, application_id TEXT NOT NULL REFERENCES credit_applications(id), attempt INTEGER NOT NULL,
+        model_version TEXT NOT NULL, probability REAL NOT NULL, risk_level TEXT NOT NULL, top_factors_json TEXT NOT NULL,
+        created_at TEXT NOT NULL, UNIQUE(application_id, attempt));`);
+    // Additive migrations for databases created by earlier versions (e.g. a Docker volume).
+    this.ensureColumn('companies', 'relationship', "TEXT NOT NULL DEFAULT 'non_client'");
+    this.ensureColumn('companies', 'bank_profile_json', "TEXT NOT NULL DEFAULT 'null'");
+    this.ensureColumn('credit_products', 'product_margin', 'REAL NOT NULL DEFAULT 0');
+    this.ensureColumn('credit_products', 'max_business_age_months', 'INTEGER');
+    this.ensureColumn('credit_products', 'requires_existing_debt', 'INTEGER NOT NULL DEFAULT 0');
+    this.ensureColumn('credit_applications', 'declared_credit_history_json', "TEXT NOT NULL DEFAULT 'null'");
+    this.ensureColumn('credit_applications', 'financing_json', "TEXT NOT NULL DEFAULT 'null'");
+  }
+
+  private ensureColumn(table: string, column: string, definition: string) {
+    const columns = (this.db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[]).map((c) => c.name);
+    if (!columns.includes(column)) this.db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
   }
 
   private depth = 0;
@@ -76,23 +93,35 @@ export class CreditStore {
   seed(companies: Company[], products: CreditProduct[]) {
     this.transaction(() => {
       companies.forEach((company) => this.upsertCompany(company));
-      products.forEach((product, position) => this.db.prepare(`INSERT INTO credit_products VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+      products.forEach((product, position) => this.db.prepare(`INSERT INTO credit_products (id, name, description, min_amount,
+        max_amount, min_term_months, max_term_months, base_rate, min_business_age_months, purposes_json, required_documents_json,
+        position, product_margin, max_business_age_months, requires_existing_debt) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         ON CONFLICT(id) DO UPDATE SET name=excluded.name, description=excluded.description, min_amount=excluded.min_amount,
         max_amount=excluded.max_amount, min_term_months=excluded.min_term_months, max_term_months=excluded.max_term_months,
         base_rate=excluded.base_rate, min_business_age_months=excluded.min_business_age_months,
-        purposes_json=excluded.purposes_json, required_documents_json=excluded.required_documents_json, position=excluded.position`)
+        purposes_json=excluded.purposes_json, required_documents_json=excluded.required_documents_json, position=excluded.position,
+        product_margin=excluded.product_margin, max_business_age_months=excluded.max_business_age_months,
+        requires_existing_debt=excluded.requires_existing_debt`)
         .run(product.id, product.name, product.description, product.minAmount, product.maxAmount, product.minTermMonths,
-          product.maxTermMonths, product.baseRate, product.minBusinessAgeMonths, json(product.purposes), json(product.requiredDocuments), position));
+          product.maxTermMonths, product.baseRate, product.minBusinessAgeMonths, json(product.purposes), json(product.requiredDocuments), position,
+          product.productMargin, product.maxBusinessAgeMonths, product.requiresExistingDebt ? 1 : 0));
+      // Products removed from the synthetic catalogue disappear from matching (existing applications keep their reference).
+      this.db.prepare(`DELETE FROM credit_products WHERE id NOT IN (${products.map(() => '?').join(',')})
+        AND id NOT IN (SELECT DISTINCT product_id FROM credit_applications WHERE product_id IS NOT NULL)`).run(...products.map((p) => p.id));
     });
   }
 
   upsertCompany(company: Company) {
-    this.db.prepare(`INSERT INTO companies VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(inn) DO UPDATE SET name=excluded.name,
+    this.db.prepare(`INSERT INTO companies (inn, name, legal_form, registration_date, okved, okved_title, region, employees,
+      financials_json, source, is_synthetic, demo_json, updated_at, relationship, bank_profile_json) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+      ON CONFLICT(inn) DO UPDATE SET name=excluded.name,
       legal_form=excluded.legal_form, registration_date=excluded.registration_date, okved=excluded.okved, okved_title=excluded.okved_title,
       region=excluded.region, employees=excluded.employees, financials_json=excluded.financials_json, source=excluded.source,
-      is_synthetic=excluded.is_synthetic, demo_json=excluded.demo_json, updated_at=excluded.updated_at`)
+      is_synthetic=excluded.is_synthetic, demo_json=excluded.demo_json, updated_at=excluded.updated_at,
+      relationship=excluded.relationship, bank_profile_json=excluded.bank_profile_json`)
       .run(company.inn, company.name, company.legalForm, company.registrationDate, company.okved, company.okvedTitle, company.region,
-        company.employees, json(company.financials), company.source, company.isSynthetic ? 1 : 0, json(company.demo), company.updatedAt);
+        company.employees, json(company.financials), company.source, company.isSynthetic ? 1 : 0, json(company.demo), company.updatedAt,
+        company.relationship, json(company.bankProfile));
   }
 
   getCompany(inn: string): Company | null {
@@ -116,10 +145,10 @@ export class CreditStore {
   insertApplication(app: Omit<CreditApplication, 'number'>): CreditApplication {
     const result = this.db.prepare(`INSERT INTO credit_applications (id, number, company_inn, product_id, state, purpose,
       purpose_description, requested_amount, requested_term_months, declared_financials_json, attempt, version, created_at,
-      updated_at, submitted_at, accepted_offer_json) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+      updated_at, submitted_at, accepted_offer_json, declared_credit_history_json, financing_json) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
       .run(app.id, `pending-${app.id}`, app.companyInn, app.productId, app.state, app.purpose, app.purposeDescription,
         app.requestedAmount, app.requestedTermMonths, json(app.declaredFinancials), app.attempt, app.version, app.createdAt,
-        app.updatedAt, app.submittedAt, json(app.acceptedOffer));
+        app.updatedAt, app.submittedAt, json(app.acceptedOffer), json(app.declaredCreditHistory), json(app.financing));
     const number = `CR-${app.createdAt.slice(0, 4)}-${String(result.lastInsertRowid).padStart(5, '0')}`;
     this.db.prepare('UPDATE credit_applications SET number=? WHERE id=?').run(number, app.id);
     return { ...app, number };
@@ -130,10 +159,10 @@ export class CreditStore {
     const next = { ...app, version: app.version + 1 };
     const changed = this.db.prepare(`UPDATE credit_applications SET product_id=?, state=?, purpose=?, purpose_description=?,
       requested_amount=?, requested_term_months=?, declared_financials_json=?, attempt=?, version=?, updated_at=?,
-      submitted_at=?, accepted_offer_json=? WHERE id=? AND version=?`)
+      submitted_at=?, accepted_offer_json=?, declared_credit_history_json=?, financing_json=? WHERE id=? AND version=?`)
       .run(next.productId, next.state, next.purpose, next.purposeDescription, next.requestedAmount, next.requestedTermMonths,
         json(next.declaredFinancials), next.attempt, next.version, next.updatedAt, next.submittedAt, json(next.acceptedOffer),
-        next.id, app.version);
+        json(next.declaredCreditHistory), json(next.financing), next.id, app.version);
     if (!changed.changes) throw new Error('CONCURRENT_APPLICATION_UPDATE');
     return next;
   }
@@ -200,6 +229,19 @@ export class CreditStore {
     return decision;
   }
 
+  addRiskAssessment(risk: RiskAssessment) {
+    this.db.prepare('INSERT INTO risk_assessments VALUES (?,?,?,?,?,?,?,?)')
+      .run(risk.id, risk.applicationId, risk.attempt, risk.modelVersion, risk.probability, risk.riskLevel, json(risk.topFactors), risk.createdAt);
+    return risk;
+  }
+
+  latestRiskAssessment(applicationId: string): RiskAssessment | null {
+    const row = this.db.prepare('SELECT * FROM risk_assessments WHERE application_id=? ORDER BY attempt DESC LIMIT 1').get(applicationId) as Row | undefined;
+    return row ? { id: String(row.id), applicationId: String(row.application_id), attempt: Number(row.attempt), modelVersion: String(row.model_version),
+      probability: Number(row.probability), riskLevel: row.risk_level as RiskAssessment['riskLevel'], topFactors: parse(row.top_factors_json),
+      createdAt: String(row.created_at) } : null;
+  }
+
   latestDecision(applicationId: string): CreditDecision | null {
     const row = this.db.prepare('SELECT * FROM credit_decisions WHERE application_id=? ORDER BY attempt DESC LIMIT 1').get(applicationId) as Row | undefined;
     return row ? { id: String(row.id), applicationId: String(row.application_id), attempt: Number(row.attempt),
@@ -235,14 +277,17 @@ function companyFromRow(row: Row): Company {
     registrationDate: (row.registration_date ?? null) as string | null, okved: String(row.okved),
     okvedTitle: (row.okved_title ?? null) as string | null, region: String(row.region),
     employees: row.employees === null ? null : Number(row.employees), financials: parse(row.financials_json),
-    source: row.source as Company['source'], isSynthetic: row.is_synthetic === 1, demo: parse(row.demo_json),
+    source: row.source as Company['source'], relationship: (row.relationship ?? 'non_client') as Company['relationship'],
+    bankProfile: parse(row.bank_profile_json ?? 'null'), isSynthetic: row.is_synthetic === 1, demo: parse(row.demo_json),
     updatedAt: String(row.updated_at) };
 }
 
 function productFromRow(row: Row): CreditProduct {
   return { id: String(row.id), name: String(row.name), description: String(row.description), minAmount: Number(row.min_amount),
     maxAmount: Number(row.max_amount), minTermMonths: Number(row.min_term_months), maxTermMonths: Number(row.max_term_months),
-    baseRate: Number(row.base_rate), minBusinessAgeMonths: Number(row.min_business_age_months), purposes: parse(row.purposes_json),
+    baseRate: Number(row.base_rate), productMargin: Number(row.product_margin ?? 0), minBusinessAgeMonths: Number(row.min_business_age_months),
+    maxBusinessAgeMonths: row.max_business_age_months === null || row.max_business_age_months === undefined ? null : Number(row.max_business_age_months),
+    requiresExistingDebt: row.requires_existing_debt === 1, purposes: parse(row.purposes_json),
     requiredDocuments: parse(row.required_documents_json), isSynthetic: true };
 }
 
@@ -254,5 +299,6 @@ function applicationFromRow(row: Row): CreditApplication {
     requestedTermMonths: row.requested_term_months === null ? null : Number(row.requested_term_months),
     declaredFinancials: parse(row.declared_financials_json), attempt: Number(row.attempt), version: Number(row.version),
     createdAt: String(row.created_at), updatedAt: String(row.updated_at), submittedAt: (row.submitted_at ?? null) as string | null,
-    acceptedOffer: parse(row.accepted_offer_json) };
+    acceptedOffer: parse(row.accepted_offer_json), declaredCreditHistory: parse(row.declared_credit_history_json ?? 'null'),
+    financing: parse(row.financing_json ?? 'null') };
 }

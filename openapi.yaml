@@ -1,14 +1,22 @@
 openapi: 3.0.3
 info:
-  title: Кредитный кабинет предпринимателя — API
-  version: 2.0.0
+  title: «Опора» — умный кредитный кабинет для бизнеса — API
+  version: 3.0.0
   description: |
-    Демонстрационный цифровой кредитный конвейер для малого и микробизнеса:
-    потребность → продукт → заявка → проверка полноты → mock-проверки (ФНС, БКИ, финансы) → скоринг → решение.
+    Демонстрационный модуль финансирования цифрового банка для бизнеса. Пять шагов одной заявки:
+    Потребность → Подбор → Анкета → Рассмотрение → Решение, затем моделируемые подписание, выдача и сопровождение.
 
-    Все компании, продукты, ставки, проверки, оценки и решения синтетические. Реальные банковские системы,
-    платные API и внешние LLM не используются. Подписание договора моделируется, деньги не перечисляются.
+    Конвейер рассмотрения: проверка полноты → mock-проверки (ФНС, БКИ, финансы) → ML-оценка риска (демо-модель на
+    синтетических данных) → детерминированный скоринг → решение по правилам (CreditDecisionEngine).
+    ML и LLM решение не принимают. LLM-ассистент необязателен (AI_ENABLED=false по умолчанию) и только формулирует
+    объяснения и разбирает текст потребности; при отключении или сбое используется детерминированный шаблон.
+
+    Все компании, продукты, ставки (ключевая ставка + маржа + надбавка за риск — иллюстрация, а не формула банка),
+    проверки, оценки и решения синтетические. Реальные системы и данные Альфа-Банка не используются.
     Ролевая модель «Клиент / Банковская сторона» — демонстрационная, без авторизации.
+
+    Команды POST принимают необязательный заголовок Idempotency-Key: повтор с тем же ключом и телом возвращает
+    сохранённый ответ (заголовок Idempotent-Replayed: true). Каждый ответ содержит X-Request-Id.
 servers:
   - url: http://localhost:3002
     description: API (локально и в Docker)
@@ -20,6 +28,8 @@ tags:
   - name: Companies
   - name: Applications
   - name: Bank
+  - name: Financing
+  - name: Assistant
 paths:
   /api/health:
     get:
@@ -81,7 +91,7 @@ paths:
   /api/demo/companies:
     get:
       tags: [Companies]
-      summary: Синтетические демо-компании (сценарии A–D)
+      summary: Синтетические демо-компании (клиенты банка A–D, не клиенты E–F)
       responses:
         '200':
           description: Демо-компании
@@ -301,6 +311,114 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/CreditDecision' }
         '404': { $ref: '#/components/responses/Error' }
+  /api/applications/{id}/matches:
+    parameters:
+      - $ref: '#/components/parameters/ApplicationId'
+    get:
+      tags: [Applications]
+      summary: Шаг «Подбор» — продукты под потребность заявки с объяснением
+      description: Учитывает данные банка (клиент) или заявленные показатели (не клиент), предварительную проверку БКИ, платёжеспособность и ключевую ставку. Ничего не сохраняет.
+      responses:
+        '200':
+          description: Подбор
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MatchesView' }
+        '404': { $ref: '#/components/responses/Error' }
+  /api/applications/{id}/risk:
+    parameters:
+      - $ref: '#/components/parameters/ApplicationId'
+    get:
+      tags: [Applications]
+      summary: Оценка ML-модели риска текущей попытки (вероятность default12m и факторы SHAP)
+      responses:
+        '200':
+          description: Оценка риска
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RiskAssessment' }
+        '404': { $ref: '#/components/responses/Error' }
+  /api/applications/{id}/improvements:
+    parameters:
+      - $ref: '#/components/parameters/ApplicationId'
+    get:
+      tags: [Applications]
+      summary: «Как улучшить заявку» — рекомендации и расчётные сценарии (что если)
+      description: Сценарии считаются тем же конвейером (ML-риск, скоринг, решение) на проверках текущей попытки и не сохраняются. Результат ориентировочный, не обещание одобрения.
+      responses:
+        '200':
+          description: Рекомендации и сценарии
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Improvements' }
+        '404': { $ref: '#/components/responses/Error' }
+  /api/applications/{id}/explanation:
+    parameters:
+      - $ref: '#/components/parameters/ApplicationId'
+    get:
+      tags: [Assistant]
+      summary: Объяснение решения или сценариев простым языком (LLM при AI_ENABLED=true, иначе шаблон)
+      parameters:
+        - { in: query, name: kind, schema: { type: string, enum: [decision, improvements], default: decision } }
+      responses:
+        '200':
+          description: Объяснение
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Explanation' }
+        '400': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /api/applications/{id}/issue:
+    parameters:
+      - $ref: '#/components/parameters/ApplicationId'
+    post:
+      tags: [Financing]
+      summary: Выдать финансирование — симуляция (COMPLETED → ACTIVE_FINANCING)
+      description: Открывается моделируемый кредитный счёт с аннуитетным графиком. Деньги не перечисляются.
+      responses:
+        '200':
+          description: Финансирование выдано (симуляция)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApplicationView' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+  /api/applications/{id}/payments:
+    parameters:
+      - $ref: '#/components/parameters/ApplicationId'
+    post:
+      tags: [Financing]
+      summary: Смоделировать очередной платёж по выданному финансированию
+      description: Проводки не создаются. Рекомендуется Idempotency-Key, чтобы повторный клик не учёл платёж дважды.
+      responses:
+        '200':
+          description: Платёж учтён (симуляция)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApplicationView' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+  /api/assistant/parse-need:
+    post:
+      tags: [Assistant]
+      summary: Разобрать свободное описание потребности («Хочу открыть вторую кофейню… 4 млн»)
+      description: Детерминированный разбор по правилам всегда доступен; при AI_ENABLED=true ответ LLM принимается только после проверки (сумма должна совпасть с найденной правилами).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text: { type: string, minLength: 3, maxLength: 1000 }
+      responses:
+        '200':
+          description: Структурированная потребность
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ParsedNeed' }
+        '400': { $ref: '#/components/responses/Error' }
   /api/bank/applications:
     get:
       tags: [Bank]
@@ -364,23 +482,35 @@ components:
           example: VALIDATION_ERROR
           enum: [VALIDATION_ERROR, INVALID_INPUT, NOT_FOUND, RATE_LIMITED, INTERNAL_ERROR, COMPANY_NOT_FOUND, APPLICATION_NOT_FOUND,
             INVALID_TRANSITION, INVALID_STATE, APPLICATION_LOCKED, APPLICATION_INCOMPLETE, VERSION_CONFLICT, SCORING_NOT_READY,
-            DECISION_NOT_READY, INVALID_INN, FNS_NOT_CONFIGURED, FNS_UNAVAILABLE, COMPANY_ACCESS_DENIED, COMPANY_QUOTA_EXCEEDED,
+            DECISION_NOT_READY, RISK_NOT_READY, IMPROVEMENTS_NOT_READY, FINANCING_REPAID, IDEMPOTENCY_KEY_REUSED,
+            IDEMPOTENCY_IN_PROGRESS, INVALID_INN, FNS_NOT_CONFIGURED, FNS_UNAVAILABLE, COMPANY_ACCESS_DENIED, COMPANY_QUOTA_EXCEEDED,
             COMPANY_RATE_LIMITED, COMPANY_PROVIDER_UNAVAILABLE]
         details: { description: 'Подробности: поле с ошибкой ({ field }), допустимые переходы ({ from, to, allowed }) или недостающие пункты ({ missing })' }
     Health:
       type: object
-      required: [status, service, credit]
+      required: [status, service, credit, ai]
       properties:
         status: { type: string, enum: [ok] }
         service: { type: string, example: credit-cabinet }
         revision: { type: string, nullable: true }
         credit:
           type: object
-          required: [products, demoCompanies, storage]
+          required: [products, demoCompanies, storage, keyRate, riskModel]
           properties:
-            products: { type: integer, example: 3 }
-            demoCompanies: { type: integer, example: 4 }
+            products: { type: integer, example: 6 }
+            demoCompanies: { type: integer, example: 6 }
             storage: { type: string, enum: [sqlite] }
+            keyRate: { type: number, example: 16, description: 'Демо-значение ключевой ставки, % (CREDIT_KEY_RATE)' }
+            riskModel: { type: string, nullable: true, example: lgbm-default12m-1.0.0, description: Версия ML-модели риска; null — отключена }
+        ai:
+          type: object
+          required: [enabled, model, endpoint, lastOutcome, lastError]
+          properties:
+            enabled: { type: boolean }
+            model: { type: string, nullable: true, example: 'qwen2.5:7b-instruct' }
+            endpoint: { type: string, enum: [local, remote], nullable: true }
+            lastOutcome: { type: string, enum: [ok, fallback], nullable: true }
+            lastError: { type: string, nullable: true }
     ProvidersStatus:
       type: object
       required: [company, creditChecks]
@@ -411,14 +541,14 @@ components:
         profile: { type: object }
     ApplicationState:
       type: string
-      enum: [DRAFT, DATA_COLLECTION, READY_TO_SUBMIT, SUBMITTED, VALIDATING, NEEDS_INFO, ENRICHING, SCORING, DECISION,
-        APPROVED, COUNTER_OFFER, REJECTED, OFFER_ACCEPTED, COMPLETED]
+      enum: [DRAFT, DATA_COLLECTION, READY_TO_SUBMIT, SUBMITTED, VALIDATING, NEEDS_INFO, ENRICHING, RISK_ASSESSMENT, SCORING, DECISION,
+        APPROVED, COUNTER_OFFER, REJECTED, OFFER_ACCEPTED, COMPLETED, ACTIVE_FINANCING]
     CreditPurpose:
       type: string
-      enum: [WORKING_CAPITAL, EQUIPMENT, EXPANSION, REFINANCING, OTHER]
+      enum: [WORKING_CAPITAL, EQUIPMENT, NEW_LOCATION, EXPANSION, INVESTMENT_PROJECT, REFINANCING, YOUNG_BUSINESS, OTHER]
     DocumentType:
       type: string
-      enum: [BANK_STATEMENT, FINANCIAL_STATEMENT, REGISTRY_EXTRACT, INVESTMENT_PLAN, OTHER]
+      enum: [BANK_STATEMENT, FINANCIAL_STATEMENT, REGISTRY_EXTRACT, INVESTMENT_PLAN, LOAN_AGREEMENT, OTHER]
     DecisionOutcome:
       type: string
       enum: [APPROVED, COUNTER_OFFER, NEEDS_INFO, REJECTED]
@@ -438,6 +568,13 @@ components:
         revenue: { type: integer, minimum: 1, maximum: 1000000000000 }
         expenses: { type: integer, minimum: 0, maximum: 1000000000000 }
         currentDebt: { type: integer, minimum: 0, maximum: 1000000000000 }
+        activeLoans: { type: integer, minimum: 0, maximum: 99, description: Число действующих кредитов и лизингов }
+    DeclaredCreditHistory:
+      type: object
+      required: [hadOverdue12m, maxOverdueDays]
+      properties:
+        hadOverdue12m: { type: boolean, description: Были ли просрочки за 12 месяцев (сверяется с БКИ) }
+        maxOverdueDays: { type: integer, minimum: 0, maximum: 3650 }
     FinancingNeed:
       type: object
       required: [purpose, requestedAmount, requestedTermMonths]
@@ -447,7 +584,7 @@ components:
         requestedTermMonths: { type: integer }
     Company:
       type: object
-      required: [inn, name, legalForm, registrationDate, okved, okvedTitle, region, employees, financials, source, isSynthetic, demo, updatedAt]
+      required: [inn, name, legalForm, registrationDate, okved, okvedTitle, region, employees, financials, source, relationship, bankProfile, isSynthetic, demo, updatedAt]
       properties:
         inn: { type: string }
         name: { type: string }
@@ -459,6 +596,16 @@ components:
         employees: { type: integer, nullable: true }
         financials: { allOf: [{ $ref: '#/components/schemas/Financials' }], nullable: true }
         source: { type: string, enum: [synthetic, manual, registry] }
+        relationship: { type: string, enum: [client, non_client], description: 'Демо-связь с банком: клиенту данные подставляются, не клиент подтверждает сведения и вводит показатели' }
+        bankProfile:
+          type: object
+          nullable: true
+          required: [clientSince, monthlyTurnover, products, accountMasked]
+          properties:
+            clientSince: { type: string, format: date }
+            monthlyTurnover: { type: integer, description: 'Средние поступления на счёт в месяц, ₽ (синтетические)' }
+            products: { type: array, items: { type: string } }
+            accountMasked: { type: string }
         isSynthetic: { type: boolean }
         demo:
           type: object
@@ -484,7 +631,8 @@ components:
         employees: { type: integer, minimum: 0, nullable: true }
     CreditProduct:
       type: object
-      required: [id, name, description, minAmount, maxAmount, minTermMonths, maxTermMonths, baseRate, minBusinessAgeMonths, purposes, requiredDocuments, isSynthetic]
+      required: [id, name, description, minAmount, maxAmount, minTermMonths, maxTermMonths, baseRate, productMargin, minBusinessAgeMonths,
+        maxBusinessAgeMonths, requiresExistingDebt, purposes, requiredDocuments, isSynthetic]
       properties:
         id: { type: string, example: working-capital }
         name: { type: string }
@@ -493,14 +641,17 @@ components:
         maxAmount: { type: integer }
         minTermMonths: { type: integer }
         maxTermMonths: { type: integer }
-        baseRate: { type: number, description: 'Синтетическая базовая ставка, % годовых' }
+        baseRate: { type: number, description: 'Синтетическая базовая ставка = ключевая ставка + маржа продукта, % годовых' }
+        productMargin: { type: number, description: 'Синтетическая маржа продукта, п.п.' }
         minBusinessAgeMonths: { type: integer }
+        maxBusinessAgeMonths: { type: integer, nullable: true, description: Верхняя граница срока работы (продукт для молодого бизнеса) }
+        requiresExistingDebt: { type: boolean, description: Продукт рефинансирует действующие кредиты }
         purposes: { type: array, items: { $ref: '#/components/schemas/CreditPurpose' } }
         requiredDocuments: { type: array, items: { $ref: '#/components/schemas/DocumentType' } }
         isSynthetic: { type: boolean, enum: [true] }
     ProductMatch:
       type: object
-      required: [product, eligible, recommended, checks, estimatedMonthlyPayment]
+      required: [product, eligible, recommended, checks, estimatedMonthlyPayment, pricing, totalCost, affordability, fitReasons, dataUsed, constraints, risks, alternatives]
       properties:
         product: { $ref: '#/components/schemas/CreditProduct' }
         eligible: { type: boolean }
@@ -511,15 +662,174 @@ components:
             type: object
             required: [code, ok, text]
             properties:
-              code: { type: string, enum: [purpose, amount, term, businessAge] }
+              code: { type: string, enum: [purpose, amount, term, businessAge, existingDebt] }
               ok: { type: boolean }
               text: { type: string }
         estimatedMonthlyPayment: { type: integer, nullable: true }
+        pricing: { $ref: '#/components/schemas/Pricing' }
+        totalCost: { type: integer, nullable: true, description: 'Ориентировочная переплата за весь срок, ₽' }
+        affordability:
+          type: object
+          required: [status, paymentToProfit, maxAffordableAmount]
+          properties:
+            status: { type: string, enum: [ok, tight, unaffordable, unknown] }
+            paymentToProfit: { type: number, nullable: true, description: Платёж / среднемесячная прибыль }
+            maxAffordableAmount: { type: integer, nullable: true }
+        fitReasons: { type: array, items: { type: string }, description: Почему подходит }
+        dataUsed: { type: array, items: { type: string }, description: Какие данные использованы }
+        constraints: { type: array, items: { type: string }, description: Ограничения продукта }
+        risks: { type: array, items: { type: string } }
+        alternatives: { type: array, items: { type: string } }
+    Pricing:
+      type: object
+      required: [keyRate, productMargin, riskPremium, rate]
+      description: 'Демо-ценообразование: rate = keyRate + productMargin + riskPremium. Иллюстрация, а не формула какого-либо банка.'
+      properties:
+        keyRate: { type: number }
+        productMargin: { type: number }
+        riskPremium: { type: number }
+        rate: { type: number }
+    MatchingFacts:
+      type: object
+      required: [revenue, profit, debt, maxDaysOverdue, hasCreditHistory, riskLevel, financeSource]
+      properties:
+        revenue: { type: integer, nullable: true }
+        profit: { type: integer, nullable: true }
+        debt: { type: integer, nullable: true }
+        maxDaysOverdue: { type: integer, nullable: true }
+        hasCreditHistory: { type: boolean, nullable: true }
+        riskLevel: { allOf: [{ $ref: '#/components/schemas/RiskLevel' }], nullable: true }
+        financeSource: { type: string, enum: [bank, declared, none] }
+    MatchesView:
+      type: object
+      required: [keyRate, facts, matches]
+      properties:
+        keyRate: { type: number }
+        facts: { $ref: '#/components/schemas/MatchingFacts' }
+        matches: { type: array, items: { $ref: '#/components/schemas/ProductMatch' } }
+    RiskLevel:
+      type: string
+      enum: [LOW, MEDIUM, HIGH]
+    RiskAssessment:
+      type: object
+      required: [id, applicationId, attempt, modelVersion, probability, riskLevel, topFactors, createdAt]
+      description: Оценка отдельной ML-модели (демо, синтетические данные). Один из входов решения, не решение.
+      properties:
+        id: { type: string }
+        applicationId: { type: string }
+        attempt: { type: integer }
+        modelVersion: { type: string, example: lgbm-default12m-1.0.0 }
+        probability: { type: number, minimum: 0, maximum: 1, description: Вероятность события default12m }
+        riskLevel: { $ref: '#/components/schemas/RiskLevel' }
+        topFactors:
+          type: array
+          items:
+            type: object
+            required: [feature, label, impact, text]
+            properties:
+              feature: { type: string, example: paymentToProfit }
+              label: { type: string }
+              impact: { type: string, enum: [positive, negative], description: 'negative — повышает риск' }
+              text: { type: string, description: Пояснение простым языком }
+        createdAt: { type: string, format: date-time }
+    ScenarioResult:
+      type: object
+      required: [label, amount, termMonths, productId, monthlyPayment, paymentToProfit, affordability, score, scoreRiskLevel, mlProbability, mlRiskLevel, outcome, offerAmount, current]
+      properties:
+        label: { type: string }
+        amount: { type: integer }
+        termMonths: { type: integer }
+        productId: { type: string }
+        monthlyPayment: { type: integer }
+        paymentToProfit: { type: number, nullable: true }
+        affordability: { type: string, enum: [ok, tight, over, unknown] }
+        score: { type: integer }
+        scoreRiskLevel: { $ref: '#/components/schemas/RiskLevel' }
+        mlProbability: { type: number, nullable: true }
+        mlRiskLevel: { allOf: [{ $ref: '#/components/schemas/RiskLevel' }], nullable: true }
+        outcome: { $ref: '#/components/schemas/DecisionOutcome' }
+        offerAmount: { type: integer, nullable: true }
+        current: { type: boolean }
+    Improvements:
+      type: object
+      required: [disclaimer, current, scenarios, recommendations, hardStop]
+      properties:
+        disclaimer: { type: string }
+        current: { $ref: '#/components/schemas/ScenarioResult' }
+        scenarios: { type: array, items: { $ref: '#/components/schemas/ScenarioResult' } }
+        recommendations:
+          type: array
+          items:
+            type: object
+            required: [code, title, text, effect]
+            properties:
+              code: { type: string }
+              title: { type: string }
+              text: { type: string }
+              effect: { type: string, description: 'Осторожная формулировка («может улучшить…»)' }
+        hardStop: { type: string, nullable: true, description: Стоп-фактор, который не исправить суммой и сроком }
+    Explanation:
+      type: object
+      required: [kind, text, source, model]
+      properties:
+        kind: { type: string, enum: [decision, improvements] }
+        text: { type: string }
+        source: { type: string, enum: [llm, template] }
+        model: { type: string, nullable: true }
+    ParsedNeed:
+      type: object
+      required: [purpose, amount, businessGoal, suggestedTerm, financingCategory, recognized, source]
+      properties:
+        purpose: { $ref: '#/components/schemas/CreditPurpose' }
+        amount: { type: integer, nullable: true }
+        businessGoal: { type: string }
+        suggestedTerm: { type: integer }
+        financingCategory: { type: string }
+        recognized: { type: array, items: { type: string, enum: [purpose, amount, term] } }
+        source: { type: string, enum: [rules, llm] }
+    FinancingView:
+      type: object
+      required: [issuedAt, productId, amount, termMonths, rate, monthlyPayment, paidInstallments, status, productName, remainingPrincipal,
+        installmentsLeft, nextPayment, summary, simulated, opportunities]
+      properties:
+        issuedAt: { type: string, format: date-time }
+        productId: { type: string }
+        amount: { type: integer }
+        termMonths: { type: integer }
+        rate: { type: number }
+        monthlyPayment: { type: integer }
+        paidInstallments: { type: integer }
+        status: { type: string, enum: [ACTIVE, REPAID] }
+        productName: { type: string }
+        remainingPrincipal: { type: integer }
+        installmentsLeft: { type: integer }
+        nextPayment:
+          type: object
+          nullable: true
+          required: [date, amount]
+          properties:
+            date: { type: string, format: date }
+            amount: { type: integer }
+        summary: { type: string }
+        simulated: { type: boolean, enum: [true] }
+        opportunities:
+          type: array
+          items:
+            type: object
+            required: [code, title, description, available, condition, purpose]
+            properties:
+              code: { type: string, enum: [LIMIT_INCREASE, ADDITIONAL_WORKING_CAPITAL, REFINANCING, INVESTMENT] }
+              title: { type: string }
+              description: { type: string }
+              available: { type: boolean }
+              condition: { type: string, nullable: true }
+              purpose: { allOf: [{ $ref: '#/components/schemas/CreditPurpose' }], nullable: true }
     ProductsResponse:
       type: object
-      required: [products, syntheticLabel]
+      required: [products, keyRate, syntheticLabel]
       properties:
         products: { type: array, items: { $ref: '#/components/schemas/CreditProduct' } }
+        keyRate: { type: number }
         matches: { type: array, items: { $ref: '#/components/schemas/ProductMatch' } }
         syntheticLabel: { type: string }
     OfferTerms:
@@ -531,10 +841,17 @@ components:
         termMonths: { type: integer }
         rate: { type: number }
         monthlyPayment: { type: integer }
+        pricing:
+          type: object
+          required: [keyRate, productMargin, riskPremium]
+          properties:
+            keyRate: { type: number }
+            productMargin: { type: number }
+            riskPremium: { type: number }
     CreditApplication:
       type: object
       required: [id, number, companyInn, productId, state, purpose, purposeDescription, requestedAmount, requestedTermMonths,
-        declaredFinancials, attempt, version, createdAt, updatedAt, submittedAt, acceptedOffer]
+        declaredFinancials, declaredCreditHistory, attempt, version, createdAt, updatedAt, submittedAt, acceptedOffer, financing]
       properties:
         id: { type: string }
         number: { type: string, example: CR-2026-00001 }
@@ -552,6 +869,21 @@ components:
         updatedAt: { type: string, format: date-time }
         submittedAt: { type: string, format: date-time, nullable: true }
         acceptedOffer: { allOf: [{ $ref: '#/components/schemas/OfferTerms' }], nullable: true }
+        declaredCreditHistory: { allOf: [{ $ref: '#/components/schemas/DeclaredCreditHistory' }], nullable: true }
+        financing:
+          type: object
+          nullable: true
+          description: Моделируемый кредитный счёт после выдачи
+          required: [issuedAt, productId, amount, termMonths, rate, monthlyPayment, paidInstallments, status]
+          properties:
+            issuedAt: { type: string, format: date-time }
+            productId: { type: string }
+            amount: { type: integer }
+            termMonths: { type: integer }
+            rate: { type: number }
+            monthlyPayment: { type: integer }
+            paidInstallments: { type: integer }
+            status: { type: string, enum: [ACTIVE, REPAID] }
     CreateApplication:
       type: object
       required: [companyInn]
@@ -565,6 +897,7 @@ components:
         requestedAmount: { type: integer, minimum: 10000, maximum: 1000000000 }
         requestedTermMonths: { type: integer, minimum: 1, maximum: 120 }
         declaredFinancials: { allOf: [{ $ref: '#/components/schemas/DeclaredFinancials' }], nullable: true }
+        declaredCreditHistory: { allOf: [{ $ref: '#/components/schemas/DeclaredCreditHistory' }], nullable: true }
     ApplicationPatch:
       type: object
       additionalProperties: false
@@ -575,6 +908,7 @@ components:
         requestedAmount: { type: integer, minimum: 10000, maximum: 1000000000 }
         requestedTermMonths: { type: integer, minimum: 1, maximum: 120 }
         declaredFinancials: { allOf: [{ $ref: '#/components/schemas/DeclaredFinancials' }], nullable: true }
+        declaredCreditHistory: { allOf: [{ $ref: '#/components/schemas/DeclaredCreditHistory' }], nullable: true }
         version: { type: integer, description: Ожидаемая версия; при расхождении — 409 VERSION_CONFLICT }
     NewDocument:
       type: object
@@ -607,13 +941,14 @@ components:
         missing: { type: array, items: { $ref: '#/components/schemas/ReadinessItem' } }
     ReadinessItem:
       type: object
-      required: [code, label, done, required]
+      required: [code, label, done, required, group]
       properties:
         code: { type: string }
         label: { type: string }
         done: { type: boolean }
         required: { type: boolean }
         hint: { type: string }
+        group: { type: string, enum: [company, finance, obligations, history, financing, documents], description: Группа анкеты }
     ExternalCheck:
       type: object
       required: [id, applicationId, attempt, provider, status, payload, checkedAt]
@@ -626,7 +961,7 @@ components:
         payload:
           type: object
           nullable: true
-          description: 'FNS: active, registrationDate, okved. BKI: activeDebt, overdueAmount, maxDaysOverdue, hasHistory. FINANCE: revenue, expenses, profit, currentDebt, period.'
+          description: 'FNS: active, registrationDate, okved. BKI: activeDebt, overdueAmount, maxDaysOverdue, hasHistory, activeLoans, latePayments12m. FINANCE: revenue, expenses, profit, currentDebt, period.'
         checkedAt: { type: string, format: date-time }
     ScoringFactor:
       type: object
@@ -646,7 +981,7 @@ components:
         applicationId: { type: string }
         attempt: { type: integer }
         score: { type: integer, minimum: 0, maximum: 100 }
-        riskLevel: { type: string, enum: [LOW, MEDIUM, HIGH] }
+        riskLevel: { $ref: '#/components/schemas/RiskLevel' }
         dataComplete: { type: boolean }
         factors: { type: array, items: { $ref: '#/components/schemas/ScoringFactor' } }
         createdAt: { type: string, format: date-time }
@@ -686,7 +1021,7 @@ components:
         id: { type: string }
         applicationId: { type: string }
         sequence: { type: integer }
-        type: { type: string, enum: [CREATED, UPDATED, STATE_CHANGED, DOCUMENT_ADDED, CHECK_COMPLETED, SCORED, DECIDED] }
+        type: { type: string, enum: [CREATED, UPDATED, STATE_CHANGED, DOCUMENT_ADDED, CHECK_COMPLETED, RISK_ASSESSED, SCORED, DECIDED, PAYMENT_SIMULATED] }
         fromState: { allOf: [{ $ref: '#/components/schemas/ApplicationState' }], nullable: true }
         toState: { allOf: [{ $ref: '#/components/schemas/ApplicationState' }], nullable: true }
         message: { type: string }
@@ -703,7 +1038,7 @@ components:
         createdAt: { type: string, format: date-time }
     ApplicationView:
       type: object
-      required: [application, company, product, documents, readiness, status, decision, offerProduct, timeline]
+      required: [application, company, product, documents, readiness, status, decision, offerProduct, financing, timeline]
       properties:
         application: { $ref: '#/components/schemas/CreditApplication' }
         company: { $ref: '#/components/schemas/Company' }
@@ -720,6 +1055,7 @@ components:
             editable: { type: boolean }
         decision: { allOf: [{ $ref: '#/components/schemas/CreditDecision' }], nullable: true }
         offerProduct: { allOf: [{ $ref: '#/components/schemas/CreditProduct' }], nullable: true }
+        financing: { allOf: [{ $ref: '#/components/schemas/FinancingView' }], nullable: true }
         timeline: { type: array, items: { $ref: '#/components/schemas/TimelineItem' } }
     ProcessedView:
       allOf:
@@ -732,10 +1068,12 @@ components:
       allOf:
         - $ref: '#/components/schemas/ApplicationView'
         - type: object
-          required: [checks, scoring, history, events]
+          required: [checks, scoring, riskAssessment, riskModelVersion, history, events]
           properties:
             checks: { type: array, items: { $ref: '#/components/schemas/ExternalCheck' } }
             scoring: { allOf: [{ $ref: '#/components/schemas/ScoringResult' }], nullable: true }
+            riskAssessment: { allOf: [{ $ref: '#/components/schemas/RiskAssessment' }], nullable: true }
+            riskModelVersion: { type: string, nullable: true }
             history:
               type: object
               required: [checks]
@@ -768,8 +1106,11 @@ components:
       allOf:
         - $ref: '#/components/schemas/ApplicationSummary'
         - type: object
-          required: [score, riskLevel, outcome]
+          required: [score, riskLevel, mlProbability, mlRiskLevel, relationship, outcome]
           properties:
             score: { type: integer, nullable: true }
-            riskLevel: { type: string, enum: [LOW, MEDIUM, HIGH], nullable: true }
+            riskLevel: { allOf: [{ $ref: '#/components/schemas/RiskLevel' }], nullable: true }
+            mlProbability: { type: number, nullable: true }
+            mlRiskLevel: { allOf: [{ $ref: '#/components/schemas/RiskLevel' }], nullable: true }
+            relationship: { type: string, enum: [client, non_client] }
             outcome: { allOf: [{ $ref: '#/components/schemas/DecisionOutcome' }], nullable: true }

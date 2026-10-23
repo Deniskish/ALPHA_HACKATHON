@@ -9,9 +9,9 @@ test('every state has a transition list and only known targets', () => {
     for (const target of targets) assert.ok(applicationStates.includes(target), target);
 });
 
-test('happy path DRAFT → COMPLETED is allowed step by step', () => {
-  const path = ['DRAFT', 'DATA_COLLECTION', 'READY_TO_SUBMIT', 'SUBMITTED', 'VALIDATING', 'ENRICHING', 'SCORING', 'DECISION',
-    'APPROVED', 'OFFER_ACCEPTED', 'COMPLETED'] as const;
+test('happy path DRAFT → ACTIVE_FINANCING is allowed step by step', () => {
+  const path = ['DRAFT', 'DATA_COLLECTION', 'READY_TO_SUBMIT', 'SUBMITTED', 'VALIDATING', 'ENRICHING', 'RISK_ASSESSMENT', 'SCORING', 'DECISION',
+    'APPROVED', 'OFFER_ACCEPTED', 'COMPLETED', 'ACTIVE_FINANCING'] as const;
   for (let i = 1; i < path.length; i++) assert.ok(canTransition(path[i - 1], path[i]), `${path[i - 1]} → ${path[i]}`);
 });
 
@@ -37,9 +37,11 @@ test('invalid transitions are rejected with INVALID_TRANSITION', () => {
 });
 
 test('terminal states have no exits; transition paths follow only allowed edges', () => {
-  assert.deepEqual(transitions.REJECTED, []); assert.deepEqual(transitions.COMPLETED, []);
+  assert.deepEqual(transitions.REJECTED, []); assert.deepEqual(transitions.ACTIVE_FINANCING, []);
+  assert.deepEqual(transitions.COMPLETED, ['ACTIVE_FINANCING'], 'signing is followed only by a simulated issue');
   assert.deepEqual(transitionPath('DRAFT', 'READY_TO_SUBMIT'), ['DATA_COLLECTION', 'READY_TO_SUBMIT']);
-  assert.deepEqual(transitionPath('SUBMITTED', 'DECISION'), ['VALIDATING', 'ENRICHING', 'SCORING', 'DECISION']);
+  assert.deepEqual(transitionPath('SUBMITTED', 'DECISION'), ['VALIDATING', 'ENRICHING', 'RISK_ASSESSMENT', 'SCORING', 'DECISION']);
+  assert.equal(canTransition('ENRICHING', 'SCORING'), false, 'risk assessment cannot be skipped');
   assert.equal(transitionPath('REJECTED', 'APPROVED'), null);
   assert.deepEqual(transitionPath('DRAFT', 'DRAFT'), []);
 });

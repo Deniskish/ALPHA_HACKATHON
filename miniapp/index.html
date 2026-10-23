@@ -3,27 +3,11 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="color-scheme" content="light dark" />
-    <meta name="theme-color" content="#191A1F" media="(prefers-color-scheme: dark)" />
-    <meta name="theme-color" content="#F7F7F8" media="(prefers-color-scheme: light)" />
-    <style>
-      html { background: #191a1f; color-scheme: dark; }
-      html[data-theme="light"] { background: #f7f7f8; color-scheme: light; }
-    </style>
-    <script>
-      (function () {
-        var preference;
-        try { preference = localStorage.getItem('opora.theme'); } catch (_) {}
-        var theme = preference === 'light' || preference === 'dark' ? preference : matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-        document.documentElement.dataset.theme = theme;
-        document.querySelectorAll('meta[name="theme-color"]').forEach(function (meta) {
-          meta.removeAttribute('media');
-          meta.content = theme === 'dark' ? '#191A1F' : '#F7F7F8';
-        });
-      })();
-    </script>
-    <meta name="description" content="Умный кредитный кабинет предпринимателя: от потребности в финансировании до решения по заявке (демо)" />
-    <title>Кредитный кабинет предпринимателя</title>
+    <meta name="color-scheme" content="light" />
+    <meta name="theme-color" content="#FFFFFF" />
+    <style>html { background: #f3f4f5; color-scheme: light; }</style>
+    <meta name="description" content="Опора — умный кредитный кабинет для бизнеса: от потребности в финансировании до решения и сопровождения (демо)" />
+    <title>Опора — умный кредитный кабинет для бизнеса</title>
   </head>
   <body>
     <div id="root"></div>

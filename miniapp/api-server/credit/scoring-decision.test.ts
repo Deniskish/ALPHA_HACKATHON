@@ -13,7 +13,7 @@ const companies = new Map(syntheticCompanyRecords(now).map((c) => [c.inn, c]));
 const doc = (type: ApplicationDocument['type']): ApplicationDocument => ({ id: type, applicationId: 'a', type, fileName: `${type}.pdf`,
   mimeType: 'application/pdf', sizeBytes: 1000, textCharacters: 500, uploadedAt: now.toISOString() });
 
-function evaluate(company: Company, options: { productId?: string; purpose?: CreditApplication['purpose']; amount?: number; term?: number; declared?: DeclaredFinancials | null; documents?: ApplicationDocument[] } = {}) {
+function evaluate(company: Company, options: { productId?: string; purpose?: CreditApplication['purpose']; amount?: number; term?: number; declared?: DeclaredFinancials | null; documents?: ApplicationDocument[]; ml?: number } = {}) {
   const need = { ...company.demo!.need, ...(options.purpose ? { purpose: options.purpose } : {}) };
   const productId = options.productId ?? (need.purpose === 'EQUIPMENT' ? 'investment' : 'working-capital');
   const product = creditProducts.find((p) => p.id === productId)!;
@@ -27,7 +27,8 @@ function evaluate(company: Company, options: { productId?: string; purpose?: Cre
   const readiness = applicationReadiness(application, product, company, documents, now);
   const score = new ScoringEngine().score({ requestedAmount: application.requestedAmount!, registrationDate: company.registrationDate, checks, completeness: readiness.completeness, now });
   const decision = new CreditDecisionEngine().decide({ application, product, products: creditProducts, registrationDate: company.registrationDate,
-    externalChecks: checks, scoringResult: score, readiness, documents, now });
+    externalChecks: checks, scoringResult: score, readiness, documents, now,
+    riskAssessment: options.ml === undefined ? null : { probability: options.ml, riskLevel: options.ml >= 0.2 ? 'HIGH' : 'LOW' } });
   return { score, decision };
 }
 
@@ -48,7 +49,8 @@ test('scenario A: stable company without overdue debt is APPROVED as requested',
   const { score, decision } = evaluate(companies.get('0001000010')!);
   assert.ok(score.score >= 75, String(score.score)); assert.equal(score.riskLevel, 'LOW');
   assert.equal(decision.outcome, 'APPROVED');
-  assert.deepEqual(decision.offer, { productId: 'working-capital', amount: 3_000_000, termMonths: 12, rate: 19.5, monthlyPayment: monthlyPayment(3_000_000, 19.5, 12) });
+  assert.deepEqual(decision.offer, { productId: 'working-capital', amount: 3_000_000, termMonths: 12, rate: 19.5, monthlyPayment: monthlyPayment(3_000_000, 19.5, 12),
+    pricing: { keyRate: 16, productMargin: 3.5, riskPremium: 0 } });
   assert.ok(decision.reasons.some((r) => r.kind === 'positive' && /Просрочек .* нет/.test(r.text)));
 });
 
@@ -108,7 +110,19 @@ test('counter offer switches the product when the own product minimum is not aff
   const result = evaluate(small, { productId: 'investment', purpose: 'EQUIPMENT', amount: 1_500_000, term: 12,
     declared: { revenue: 2_400_000, expenses: 1_800_000, currentDebt: 0 }, documents: [doc('BANK_STATEMENT'), doc('INVESTMENT_PLAN'), doc('FINANCIAL_STATEMENT'), doc('REGISTRY_EXTRACT')] });
   assert.equal(result.decision.outcome, 'COUNTER_OFFER', JSON.stringify(result.decision));
-  assert.equal(result.decision.offer!.productId, 'express');
-  assert.ok(result.decision.offer!.amount >= 100_000 && result.decision.offer!.termMonths <= 12);
+  // Investment minimum is not affordable; the best affordable alternative for this purpose is equipment financing.
+  assert.equal(result.decision.offer!.productId, 'equipment');
+  assert.ok(result.decision.offer!.amount >= 300_000 && result.decision.offer!.amount < 1_000_000 && result.decision.offer!.termMonths <= 48);
   assert.ok(result.decision.reasons.some((r) => r.code === 'PRODUCT_CHANGED'));
+});
+
+test('ML risk is one input: high probability makes terms cautious, low probability never overrides a hard stop', () => {
+  const a = companies.get('0001000010')!, d = companies.get('0004000040')!;
+  const plain = evaluate(a), lowMl = evaluate(a, { ml: 0.01 }), highMl = evaluate(a, { ml: 0.35 });
+  assert.equal(plain.decision.outcome, 'APPROVED');
+  assert.deepEqual(lowMl.decision.offer, plain.decision.offer, 'a low ML estimate changes nothing');
+  assert.ok(highMl.decision.reasons.some((r) => r.code === 'ML_RISK_CAUTION'));
+  assert.ok(highMl.decision.offer!.rate > plain.decision.offer!.rate, 'risk premium applied');
+  assert.equal(highMl.decision.offer!.pricing!.riskPremium, 2);
+  assert.equal(evaluate(d, { ml: 0.01 }).decision.outcome, 'REJECTED', 'ML cannot approve what the rules reject');
 });

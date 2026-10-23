@@ -4,7 +4,7 @@ import { validInn } from '../company-data/inn';
 import { documentLabels } from './labels';
 import { SYNTHETIC_LABEL } from './synthetic-data';
 import type { ApplicationPatch, ApplicationService, NewDocument } from './service';
-import { creditPurposes, CreditError, type Company, type CreditPurpose, type DeclaredFinancials, type DocumentType } from './types';
+import { creditPurposes, CreditError, type Company, type CreditPurpose, type DeclaredCreditHistory, type DeclaredFinancials, type DocumentType } from './types';
 
 const invalid = (field: string, message: string) => new CreditError(400, 'VALIDATION_ERROR', message, { field });
 const isObject = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value);
@@ -26,15 +26,23 @@ function purpose(value: unknown): CreditPurpose {
 function financials(value: unknown): DeclaredFinancials | null {
   if (value === null) return null;
   if (!isObject(value)) throw invalid('declaredFinancials', 'Финансовые показатели: объект { revenue, expenses, currentDebt }.');
-  const result = {
+  const result: DeclaredFinancials = {
     revenue: integer(value.revenue, 'declaredFinancials.revenue', 1, 1e12, 'Выручка'),
     expenses: integer(value.expenses, 'declaredFinancials.expenses', 0, 1e12, 'Расходы'),
     currentDebt: integer(value.currentDebt, 'declaredFinancials.currentDebt', 0, 1e12, 'Текущая задолженность'),
   };
+  if (value.activeLoans !== undefined) result.activeLoans = integer(value.activeLoans, 'declaredFinancials.activeLoans', 0, 100, 'Количество действующих кредитов');
   return result;
 }
+function creditHistory(value: unknown): DeclaredCreditHistory | null {
+  if (value === null) return null;
+  if (!isObject(value) || typeof value.hadOverdue12m !== 'boolean')
+    throw invalid('declaredCreditHistory', 'Кредитная история: объект { hadOverdue12m, maxOverdueDays }.');
+  return { hadOverdue12m: value.hadOverdue12m,
+    maxOverdueDays: value.hadOverdue12m ? integer(value.maxOverdueDays, 'declaredCreditHistory.maxOverdueDays', 1, 3650, 'Максимальная просрочка, дней') : 0 };
+}
 
-const patchFields = ['productId', 'purpose', 'purposeDescription', 'requestedAmount', 'requestedTermMonths', 'declaredFinancials'] as const;
+const patchFields = ['productId', 'purpose', 'purposeDescription', 'requestedAmount', 'requestedTermMonths', 'declaredFinancials', 'declaredCreditHistory'] as const;
 export function parsePatch(body: Record<string, unknown>, allowed: readonly string[] = [...patchFields, 'version']): ApplicationPatch {
   const unknown = Object.keys(body).filter((key) => !allowed.includes(key));
   if (unknown.length) throw invalid(unknown[0], `Неизвестное поле: ${unknown[0]}.`);
@@ -51,6 +59,7 @@ export function parsePatch(body: Record<string, unknown>, allowed: readonly stri
   if ('requestedAmount' in body) patch.requestedAmount = integer(body.requestedAmount, 'requestedAmount', 10_000, 1_000_000_000, 'Сумма');
   if ('requestedTermMonths' in body) patch.requestedTermMonths = integer(body.requestedTermMonths, 'requestedTermMonths', 1, 120, 'Срок в месяцах');
   if ('declaredFinancials' in body) patch.declaredFinancials = financials(body.declaredFinancials);
+  if ('declaredCreditHistory' in body) patch.declaredCreditHistory = creditHistory(body.declaredCreditHistory);
   return patch;
 }
 
@@ -68,7 +77,8 @@ export function parseCompany(value: unknown, now: Date): Company {
   return {
     inn, name: text(value.name, 'company.name', 2, 160, 'Название'), legalForm: legalForm as Company['legalForm'], registrationDate: date,
     okved: value.okved, okvedTitle: null, region: text(value.region, 'company.region', 2, 100, 'Регион'), employees,
-    financials: null, source: value.source === 'registry' ? 'registry' : 'manual', isSynthetic: false, demo: null, updatedAt: now.toISOString(),
+    financials: null, source: value.source === 'registry' ? 'registry' : 'manual', relationship: 'non_client', bankProfile: null,
+    isSynthetic: false, demo: null, updatedAt: now.toISOString(),
   };
 }
 
@@ -96,7 +106,7 @@ export function creditRouter(service: ApplicationService, now = () => new Date()
 
   router.get('/credit/products', route((req) => {
     const { inn, registrationDate, purpose: goal, amount, term } = req.query;
-    if (!inn && !registrationDate && !goal && !amount && !term) return { products: service.products(), syntheticLabel: SYNTHETIC_LABEL };
+    if (!inn && !registrationDate && !goal && !amount && !term) return { products: service.products(), keyRate: service.keyRate, syntheticLabel: SYNTHETIC_LABEL };
     const need = {
       purpose: goal === undefined ? undefined : purpose(goal),
       requestedAmount: amount === undefined ? undefined : integer(Number(amount), 'amount', 10_000, 1_000_000_000, 'Сумма'),
@@ -104,7 +114,7 @@ export function creditRouter(service: ApplicationService, now = () => new Date()
     };
     const date = typeof registrationDate === 'string' ? registrationDate
       : typeof inn === 'string' ? service.store.getCompany(inn)?.registrationDate ?? null : null;
-    return { products: service.products(), matches: service.matchProducts(date, need), syntheticLabel: SYNTHETIC_LABEL };
+    return { products: service.products(), keyRate: service.keyRate, matches: service.matchProducts(date, need), syntheticLabel: SYNTHETIC_LABEL };
   }));
   router.get('/demo/companies', route(() => ({ companies: service.demoCompanies().map(companyView), syntheticLabel: SYNTHETIC_LABEL })));
   router.get('/companies/:inn', route(async (req) => {
@@ -137,6 +147,16 @@ export function creditRouter(service: ApplicationService, now = () => new Date()
   router.post('/applications/:id/process', route((req) => service.process(req.params.id)));
   router.post('/applications/:id/accept', route((req) => service.acceptOffer(req.params.id)));
   router.post('/applications/:id/sign', route((req) => service.sign(req.params.id)));
+  router.post('/applications/:id/issue', route((req) => service.issue(req.params.id)));
+  router.post('/applications/:id/payments', route((req) => service.simulatePayment(req.params.id)));
+  router.get('/applications/:id/matches', route((req) => service.matchesFor(req.params.id)));
+  router.get('/applications/:id/risk', route((req) => service.riskResult(req.params.id)));
+  router.get('/applications/:id/improvements', route((req) => service.improvements(req.params.id)));
+  router.get('/applications/:id/explanation', route((req) => {
+    const kind = req.query.kind ?? 'decision';
+    if (kind !== 'decision' && kind !== 'improvements') throw invalid('kind', 'kind: decision или improvements.');
+    return service.explanation(req.params.id, kind);
+  }));
   router.get('/applications/:id/events', route((req) => ({ events: service.events(req.params.id) })));
   router.get('/applications/:id/scoring', route((req) => service.scoringResult(req.params.id)));
   router.get('/applications/:id/decision', route((req) => service.decision(req.params.id)));
@@ -144,6 +164,11 @@ export function creditRouter(service: ApplicationService, now = () => new Date()
     const view = service.addDocument(req.params.id, parseDocument(req.body)); res.status(201); return view;
   }));
 
+  router.post('/assistant/parse-need', route((req) => {
+    const text = body(req).text;
+    if (typeof text !== 'string' || text.trim().length < 3 || text.length > 1000) throw invalid('text', 'Описание потребности: от 3 до 1000 символов.');
+    return service.parseNeed(text);
+  }));
   router.get('/bank/applications', route(() => ({ applications: service.bankList() })));
   router.get('/bank/applications/:id', route((req) => service.bankView(req.params.id)));
 

@@ -34,7 +34,7 @@ export function financialFacts(checks: ScoringInput['checks']) {
   const debt = finance || bki ? Math.max(Number(finance?.currentDebt ?? 0), Number(bki?.activeDebt ?? 0)) : null;
   return {
     revenue, profit: finance ? Number(finance.profit) : null, debt,
-    bki: bki as { activeDebt: number; overdueAmount: number; maxDaysOverdue: number; hasHistory: boolean } | null,
+    bki: bki as { activeDebt: number; overdueAmount: number; maxDaysOverdue: number; hasHistory: boolean; activeLoans?: number; latePayments12m?: number } | null,
     fns: fns as { active: boolean; registrationDate: string | null; okved: string } | null,
   };
 }

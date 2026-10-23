@@ -23,12 +23,12 @@ export default function App() {
   }, []);
 
   if (CreditApp) return <CreditApp />;
-  return <main className="cc-main" aria-busy={!loadFailed}>
+  return <main className="op-main" aria-busy={!loadFailed}>
     {loadFailed
-      ? <div className="cc-alert cc-alert-danger" role="alert">
+      ? <div className="op-alert op-alert-danger" role="alert">
         <span>Не удалось загрузить приложение. Проверьте интернет и обновите страницу.</span>
-        <button type="button" className="cc-link" onClick={() => window.location.reload()}>Обновить страницу</button>
+        <button type="button" className="op-link" onClick={() => window.location.reload()}>Обновить страницу</button>
       </div>
-      : <p className="cc-loading" role="status"><span className="cc-spinner" aria-hidden="true" />Открываем кредитный кабинет…</p>}
+      : <p className="op-loading" role="status"><span className="op-spinner" aria-hidden="true" />Открываем кредитный кабинет…</p>}
   </main>;
 }
