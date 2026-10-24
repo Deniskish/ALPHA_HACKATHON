@@ -135,4 +135,4 @@ flowchart LR
 деплой — `ops/deploy.cjs` (сборка во временной папке, переключение артефактов, проверка и откат). Production-экземпляр
 изолирован от соседнего проекта на том же сервере: `/opt/alfa-opora`, временные сборки и lock в
 `/opt/alfa-opora-deploy`, PM2 `alfa-opora-frontend` (`127.0.0.1:3100`) и `alfa-opora-api` (`127.0.0.1:3102`), домен
-`alfa.business-opora.ru`; идентификаторы — в `ops/production.cjs` ([README](../README.md#production-деплой-pm2)).
+`alfa.business-opora.ru`; идентификаторы — в `ops/production.cjs` ([деплой](deployment.md#production-деплой-публичного-демо)).

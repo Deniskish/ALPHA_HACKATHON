@@ -30,7 +30,7 @@ npm test
 npm run build
 npm run test:production --prefix miniapp
 node --test ops/deploy.test.cjs
-# E2E: запустите API и frontend (README → «Локальный запуск»), затем
+# E2E: запустите API и frontend (docs/deployment.md → «Локальный запуск без Docker»), затем
 OPORA_UI_ENGINE=chromium,webkit npm run test:e2e
 npm run smoke:docker
 ```

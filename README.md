@@ -1,94 +1,104 @@
-# Опора
+# Опора — умный кредитный кабинет для бизнеса
 
-**Умный кредитный кабинет для бизнеса** — модуль финансирования цифрового банка для бизнеса. Решение кейса
-«Альфа-Будущее Хакатон 2026».
+Модуль финансирования цифрового банка для малого бизнеса: предприниматель описывает задачу своими словами, а
+«Опора» подбирает кредит, заранее показывает ставку и платёж, проводит заявку через пять понятных этапов, объясняет
+решение и подсказывает, как его улучшить. Решение кейса «Альфа-Будущее Хакатон 2026».
 
-> **Демо на синтетических данных.** Компании, банковские профили, кредитные продукты, ставки, ответы ФНС/БКИ,
-> ML-модель риска, скоринг и решения вымышлены. Реальные системы, API и данные Альфа-Банка не используются,
-> авторизации нет, договор, выдача и платежи моделируются. Названия продуктов и формула ставки — иллюстрация,
-> а не продукты и политика какого-либо банка.
+**Публичное демо: [alfa.business-opora.ru](https://alfa.business-opora.ru)** — без регистрации, на синтетических данных.
 
-## Что это
+> Компании, продукты, ставки, ответы ФНС/БКИ, ML-модель, скоринг и решения вымышлены. Реальные системы, API и данные
+> Альфа-Банка не используются; договор, выдача и платежи моделируются.
 
-Предприниматель описывает задачу своими словами — «Опора» подбирает финансирование, собирает только нужные данные,
-рассматривает заявку и объясняет решение, а после выдачи сопровождает кредит. Одна заявка (`CreditApplication`)
-проходит пять видимых шагов:
+## Какую проблему решает
 
-| Шаг | Что происходит |
+Предприниматель думает задачей («открыть вторую кофейню»), а банк — продуктами и анкетами. Условия становятся понятны
+только после заявки, статус непрозрачен, а ответ сводится к «да» или «нет» без объяснения и без следующего шага.
+«Опора» ведёт от задачи к деньгам и объясняет каждый шаг — клиенту и банку на одной заявке.
+Как мы проверяли гипотезы — [docs/research.md](docs/research.md).
+
+## Проверить за 5 минут
+
+На https://alfa.business-opora.ru (или локально, см. [запуск](#запуск-в-docker)):
+
+1. **«Я клиент Альфа-Банка»** → **ООО «Демо Техсервис»** → «Войти» → **«Получить финансирование»**.
+2. **Потребность** заполнена по сценарию (оборудование, 15 000 000 ₽ на 36 мес.) → «Подобрать финансирование».
+3. **Подбор**: у рекомендованного продукта ставка разложена на ключевую ставку и маржу, виден платёж и предупреждение
+   о нагрузке → «Выбрать продукт».
+4. **Анкета**: «Заполнить демо-данными» → «Отправить на рассмотрение».
+5. **Рассмотрение** → **Решение**: встречное предложение 9 900 000 ₽ на 60 мес. с причинами и блоком
+   **«Как улучшить заявку»** (расчётные сценарии) → «Принять» → «Подписать» → «Получить финансирование» →
+   «Смоделировать очередной платёж».
+6. **«Рабочее место банка»** (ссылка в шапке) → та же заявка изнутри: проверки, ML-риск с факторами, скоринг, решение,
+   история переходов.
+
+Другие исходы — компании A, C, D и вход не клиента по ИНН (E, F), см. [демо-сценарии](#демо-сценарии).
+
+## Что реализовано
+
+- Полный путь одной заявки: потребность → подбор → анкета → рассмотрение → решение → принятие, подписание, выдача и
+  платежи (симуляция).
+- Клиент банка (данные подставляются) и не клиент (поиск по ИНН, подтверждение сведений, свои показатели).
+- Прозрачная цена, четыре исхода решения, «Как улучшить заявку», сопровождение после выдачи.
+- Рабочее место банка над теми же заявками.
+- Детерминированный скоринг и правила решения; ML-модель риска (LightGBM, SHAP) как один из входов; необязательный
+  локальный LLM только для формулировок.
+- Интерфейс на открытой дизайн-системе Альфа-Банка; desktop и телефон 360–430 px.
+- Express API с OpenAPI, SQLite, Docker Compose, тесты (unit, API, контракт, паритет ML, E2E, Docker smoke).
+
+## Продуктовая идея: пять этапов одной заявки
+
+| Этап | Что видит клиент |
 |---|---|
-| 1. **Потребность** | Свободный текст («Хочу открыть вторую кофейню… около 4 млн») → цель, сумма, срок. Разбор по правилам, LLM — по желанию |
-| 2. **Подбор** | 6 продуктов: почему подходит, какие данные учтены, ограничения, ставка (ключевая + маржа + риск), платёж, переплата, риски, альтернативы |
-| 3. **Анкета** | Компания · Финансы · Обязательства · Кредитная история · Параметры · Документы; у каждого поля «Зачем банк спрашивает это?» |
-| 4. **Рассмотрение** | Проверки (mock ФНС/БКИ/финансы) → ML-оценка риска → скоринг → решение по правилам |
-| 5. **Решение** | Что произошло, почему, что дальше; «Как улучшить заявку» с расчётными сценариями; принятие → подписание → выдача (симуляция) |
+| 1. **Потребность** | Задача своими словами → цель, сумма, срок; ориентировочный платёж ещё до заявки |
+| 2. **Подбор** | Продукты под задачу: почему подходит или нет, ставка, платёж, переплата, риски, альтернативы |
+| 3. **Анкета** | Только поля, которые используются в оценке; у каждого — «Зачем банк спрашивает это?»; готовность без загадочных процентов |
+| 4. **Рассмотрение** | Этапы проверки простыми словами |
+| 5. **Решение** | Что произошло, почему и что дальше; принятие, подписание, выдача и сопровождение |
 
-Клиент банка входит в демо-кабинет и получает предзаполненные (синтетические) данные; не клиент находит компанию по ИНН,
-подтверждает сведения и вводит показатели. Банковская сторона видит ту же заявку изнутри.
+Подробнее — [продуктовая концепция](docs/product-concept.md), [пять шагов](docs/five-step-client-journey.md).
 
-Подробнее: [продуктовая концепция](docs/product-concept.md), [пять шагов](docs/five-step-client-journey.md),
-[клиент и не клиент](docs/client-vs-nonclient.md), [сопровождение после выдачи](docs/post-credit-support.md).
+## Одна заявка — две стороны
 
-## Три независимых контура
+Клиентский кабинет (`#/`, `#/credit/…`) и рабочее место банка (`#/bank/…`) работают с одной `CreditApplication` и
+одной state machine. Клиент видит понятные статусы и объяснения, банк — внутренний путь заявки
+(APPLICATION RECEIVED → … → RESULT), mock-проверки, ML-риск с факторами, скоринг, решение и журнал событий.
+Подробнее — [клиент и не клиент](docs/client-vs-nonclient.md), [state machine](docs/application-state-machine.md).
 
-| Контур | Что делает | Что **не** делает |
-|---|---|---|
-| **Core Credit Engine** — state machine, mock-проверки, `ScoringEngine`, `CreditDecisionEngine` | Детерминированно оценивает заявку и **принимает решение** по прозрачным правилам | — |
-| **ML Risk Model** — LightGBM на синтетических данных, `default12m` | Оценивает вероятность проблемного обслуживания и объясняет её факторами SHAP | Не принимает решение: только один из входов правил |
-| **LLM Assistant** — локальная open-weight модель, по умолчанию выключен | Разбирает текст потребности, формулирует объяснения решения и сценариев | Не решает, не оценивает, не считает деньги, не меняет решение |
+## Основные особенности
 
-**Scoring ≠ ML Risk ≠ Credit Decision ≠ LLM Explanation.**
-
-```mermaid
-flowchart LR
-  Data["Данные заявки<br/>банк · анкета · mock ФНС/БКИ"] --> FB["Feature Builder"]
-  FB --> ML["ML Risk<br/>P(default12m), SHAP"]
-  Data --> SC["Scoring<br/>6 факторов, 0–100"]
-  ML --> DE["Decision Engine<br/>стоп-факторы · пороги · платёжеспособность · продукт"]
-  SC --> DE
-  DE --> D["Decision<br/>APPROVED · COUNTER_OFFER · NEEDS_INFO · REJECTED"]
-  D --> LLM["LLM Explanation<br/>(или шаблон)"]
-```
-
-ML влияет на решение только так: при вероятности ≥ 20% заявка считается рискованнее (надбавка к ставке, осторожные
-условия). Отказ по стоп-факторам ML не отменяет, одобрение без правил не даёт. LLM получает уже готовый результат.
+| | |
+|---|---|
+| **Подбор под потребность** | Свободный текст разбирается правилами (LLM — по желанию); подбор учитывает цель, сумму, срок, возраст бизнеса и платёжеспособность |
+| **Прозрачная ставка** | Ставка = ключевая + маржа продукта (+ надбавка за риск), например **19,5% годовых** = 16% + 3,5%; платёж и переплата до подачи |
+| **Четыре исхода** | **APPROVED** · **COUNTER_OFFER** (другие сумма/срок) · **NEEDS_INFO** (что именно добавить) · **REJECTED** (причины и шаг) |
+| **«Как улучшить заявку»** | Рекомендации и расчётные сценарии суммы и срока по той же модели оценки, с нагрузкой на прибыль; без обещаний |
+| **Банковская сторона** | KPI, фильтры, поиск, карточка заявки: проверки, ML-риск с SHAP, скоринг по факторам, решение, история |
+| **После выдачи** | Остаток, график, платежи, «Следующие возможности» с условиями доступности (симуляция) |
 
 ## Архитектура
 
 ```mermaid
 flowchart LR
-  subgraph Browser["Браузер"]
-    UI["React 18 + Alfa Design System<br/>Клиент · Банковская сторона"]
-  end
-  subgraph API["Express API (TypeScript, Node 22)"]
-    R["router: валидация, единые ошибки"]
-    S["ApplicationService"]
-    SM["State machine"]
-    P["Mock providers FNS · BKI · Finance"]
-    E["evaluate(): ML risk → scoring → decision"]
-    L["LlmAssistant (optional)"]
+  UI["React 18 + Alfa Design System<br/>клиентский кабинет · рабочее место банка"] -- "/api" --> API
+  subgraph API["Express API · TypeScript · Node 22"]
+    SM["State machine<br/>CreditApplication"] --> P["Mock-проверки<br/>ФНС · БКИ · финансы"]
+    P --> ML["ML Risk<br/>LightGBM, SHAP"]
+    P --> SC["Scoring<br/>0–100"]
+    ML --> DE["Decision Engine<br/>правила"]
+    SC --> DE
+    DE --> D["APPROVED · COUNTER_OFFER<br/>NEEDS_INFO · REJECTED"]
     DB[("SQLite")]
   end
-  OL["Ollama / OpenAI-compatible<br/>(необязательно)"]
-  UI -- "/api через nginx / Vite" --> R --> S
-  S --> SM & P & E & DB
-  S -.-> L -.-> OL
+  D -.-> LLM["LLM (необязательно)<br/>только формулировки"]
 ```
 
-Подробнее: [архитектура](docs/architecture.md), [state machine](docs/application-state-machine.md),
-[модель данных](docs/data-model.md), [скоринг и решение](docs/scoring-and-decision.md),
-[ML-модель риска](docs/ml-risk-model.md), [LLM-архитектура](docs/llm-architecture.md),
-[интеграции](docs/integrations.md), [дизайн-система](docs/design-system.md).
+**Scoring ≠ ML Risk ≠ Credit Decision ≠ LLM Explanation.** Решение принимают прозрачные правила. ML-оценка — один из
+входов: при высокой вероятности риска условия осторожнее, но стоп-факторы она не отменяет и одобрения сама не даёт.
+LLM получает уже готовый результат; без него работают шаблоны.
 
-## Стек
-
-| Слой | Технологии |
-|---|---|
-| Frontend | React 18, TypeScript, Vite 5, `@alfalab/core-components` (Button, Input, Select, Textarea, RadioGroup, Tag, Steps, Tabs, Table, SegmentedControl, Status, Plate, Amount, Typography, Tooltip, Progress) и токены `core-components-vars`, иконки `@alfalab/icons-glyph`; из своего — только логотип «Опоры», чтение PDF/DOCX/сканов в браузере (pdf.js, mammoth, tesseract.js) |
-| API | Node.js 22, Express 4, TypeScript, встроенный `node:sqlite` |
-| ML (офлайн) | Python, numpy, pandas, scikit-learn, LightGBM; модель экспортируется в JSON и исполняется в TypeScript с точным TreeSHAP |
-| LLM (опционально) | Ollama + `qwen2.5:7b-instruct` (Apache-2.0) через OpenAI-совместимый API |
-| Тесты | `node:test` + tsx (unit, API, контракт OpenAPI, паритет ML с Python), Playwright (Chromium и WebKit, 1280 и 390 px) |
-| Запуск | Docker Compose: API + nginx; профиль `ai` — Ollama |
+Подробнее — [архитектура](docs/architecture.md), [модель данных](docs/data-model.md),
+[скоринг и решение](docs/scoring-and-decision.md), [ML-модель риска](docs/ml-risk-model.md),
+[LLM](docs/llm-architecture.md), [интеграции](docs/integrations.md), [дизайн-система](docs/design-system.md).
 
 ## Запуск в Docker
 
@@ -96,21 +106,11 @@ flowchart LR
 docker compose up --build
 ```
 
-- Frontend: http://localhost:3000 · API: http://localhost:3002/api/health
-- Ключи и `.env` не нужны. ML-модель входит в образ API. LLM выключен.
-- Заявки хранятся в volume `credit-data`; `docker compose down -v` удаляет их.
-- Порты заняты? `FRONTEND_PORT=3100 API_PORT=3102 docker compose up --build`.
+Frontend — http://localhost:3000, API — http://localhost:3002/api/health. Ключи и `.env` не нужны, ML-модель входит в
+образ, LLM выключен. Порты заняты: `FRONTEND_PORT=3100 API_PORT=3102 docker compose up --build`. Заявки хранятся в
+volume `credit-data` (`docker compose down -v` — сброс).
 
-Проверка всего стека (сборка, healthcheck, 6 сценариев через nginx, ML, выдача и идемпотентный платёж, перезапуск;
-отдельный compose-проект на портах 3100/3102):
-
-```bash
-npm run smoke:docker
-```
-
-### Необязательный LLM-ассистент
-
-Веса модели не скачиваются автоматически. Чтобы включить ассистента:
+Необязательный LLM-ассистент (веса не скачиваются автоматически):
 
 ```bash
 docker compose --profile ai up -d ollama
@@ -118,161 +118,76 @@ docker compose exec ollama ollama pull qwen2.5:7b-instruct    # ≈4.7 ГБ, о�
 AI_ENABLED=true docker compose up -d api
 ```
 
-Ollama на хосте вместо контейнера: `LLM_BASE_URL=http://host.docker.internal:11434/v1`. Весь сценарий работает и с
-`AI_ENABLED=false` — объяснения строятся детерминированными шаблонами ([docs/llm-architecture.md](docs/llm-architecture.md)).
-
-## Локальный запуск
-
-```bash
-npm ci --prefix miniapp
-npm ci --prefix miniapp/api-server
-npm run api:dev      # терминал 1: API на http://localhost:3002
-npm run dev          # терминал 2: frontend на http://localhost:3000
-```
-
-Production-сборка без Docker: `npm run build`, затем `npm run api:server` и `npm start --prefix miniapp`
-(`API_URL` — адрес API для frontend-сервера, по умолчанию `http://127.0.0.1:3002`).
-
-### Production-деплой (PM2)
-
-Экземпляр работает рядом с другим проектом на том же сервере и не пересекается с ним: свои каталоги, процессы
-PM2 и порты. Все идентификаторы — в [ops/production.cjs](ops/production.cjs).
-
-| | Этот экземпляр | Не трогать (другой проект) |
-|---|---|---|
-| Код | `/opt/alfa-opora` | `/opt/app` |
-| Временные сборки и lock | `/opt/alfa-opora-deploy` (`release-*`, `deploy.lock`) | `/opt/opora-deploy` |
-| PM2 | `alfa-opora-frontend`, `alfa-opora-api` | `opora-frontend`, `opora-api` |
-| Порты | frontend `127.0.0.1:3100`, API `127.0.0.1:3102` | 3000, 3002 |
-| Домен | `alfa.business-opora.ru` (HTTPS-ingress → `127.0.0.1:3100`) | `business-opora.ru` |
-
-Первый запуск (один раз; `deploy.cjs` требует уже работающий `alfa-opora-api`, чтобы перенести его настройки):
-
-```bash
-git clone <repo> /opt/alfa-opora && mkdir -p /opt/alfa-opora-deploy && cd /opt/alfa-opora
-npm ci --prefix miniapp && npm ci --prefix miniapp/api-server && npm run build
-APP_ORIGIN=https://alfa.business-opora.ru node miniapp/scripts/restart-api.cjs   # alfa-opora-api на 127.0.0.1:3102
-pm2 start ecosystem.config.cjs && pm2 save                                       # alfa-opora-frontend на 127.0.0.1:3100
-node miniapp/scripts/check-production.cjs
-```
-
-Обновление до коммита из `main`:
-
-```bash
-flock -n /opt/alfa-opora-deploy/deploy.lock node /opt/alfa-opora/ops/deploy.cjs /opt/alfa-opora <sha>
-```
-
-`deploy.cjs` принимает только `/opt/alfa-opora`, собирает и тестирует коммит во временной папке, переключает
-артефакты, перезапускает и проверяет (`/api/health` на 3102, `check-production` на 3100, стабильность в PM2) только
-`alfa-opora-*`, при ошибке откатывается. Процессы и порты другого проекта не перечисляются, не перезапускаются и не
-удаляются (`ops/deploy.test.cjs`, `miniapp/scripts/restart-api.test.cjs`).
-
-### Переобучение ML-модели (необязательно)
-
-```bash
-cd ml && python3 -m venv .venv && . .venv/bin/activate && pip install -r requirements.txt
-python generate_dataset.py && python train.py && python evaluate.py && python inference.py --check
-```
-
-## Переменные окружения
-
-Все необязательны; шаблон — [.env.example](.env.example).
-
-| Переменная | Назначение | По умолчанию |
-|---|---|---|
-| `PORT`, `APP_ORIGIN` | Порт API, разрешённые origin для CORS | `3002`, `http://localhost:3000` |
-| `API_HOST` | Адрес, на котором слушает API | `0.0.0.0`; в PM2-деплое `127.0.0.1` |
-| `CREDIT_DB_PATH` | Файл SQLite | `miniapp/api-server/data/credit.sqlite`; в Docker `/data/credit/credit.sqlite` |
-| `CREDIT_KEY_RATE` | Демо-ключевая ставка, % | `16` |
-| `RISK_MODEL_ENABLED` | ML-модель риска (`false` — решения только по скорингу и правилам) | `true` |
-| `AI_ENABLED` | LLM-ассистент | `false` |
-| `LLM_BASE_URL`, `LLM_MODEL`, `LLM_API_KEY`, `LLM_TIMEOUT_MS` | OpenAI-совместимый endpoint | `http://127.0.0.1:11434/v1`, `qwen2.5:7b-instruct`, —, `20000` |
-| `API_RATE_LIMIT` | Запросов в минуту на клиента | `300` |
-| `TRUST_PROXY` | Доверенные прокси для `X-Forwarded-For` | `loopback`; в Docker `loopback,uniquelocal` |
-| `LOG_REQUESTS` | JSON-логи запросов (без ИНН в пути) | в production включены |
-| `DADATA_API_KEY`, `FNS_DATA_DIR` | Необязательный поиск произвольной компании по ИНН | — |
-| `FRONTEND_PORT`, `API_PORT`, `OLLAMA_PORT` | Порты на хосте для Docker Compose | `3000`, `3002`, `11434` |
+Запуск без Docker, переменные окружения и деплой публичного демо — [docs/deployment.md](docs/deployment.md).
 
 ## Демо-сценарии
 
-Две отдельные оболочки над одной заявкой: **клиентский кабинет** (`#/`, `#/credit/…`) и **рабочее место банка** (`#/bank/…`, ссылка «Рабочее место банка» в шапке). Без авторизации.
+Шесть синтетических компаний воспроизводят все исходы. ИНН синтетические (контрольная сумма верна, регион `00`).
 
 | | Компания (ИНН) | Вход | Потребность | Результат |
 |---|---|---|---|---|
-| A | ООО «Демо Хлебозавод» (0001000010) | клиент | 3 000 000 ₽ / 12 мес., оборотные | **APPROVED** 19,5%; скоринг 95, ML 0,5% |
-| B | ООО «Демо Техсервис» (0002000020) | клиент | 15 000 000 ₽ / 36 мес., оборудование | **COUNTER_OFFER** 9 900 000 ₽ / 60 мес. |
+| A | ООО «Демо Хлебозавод» (0001000010) | клиент | 3 000 000 ₽ / 12 мес., оборотные | **APPROVED** 19,5% → выдача и платежи |
+| B | ООО «Демо Техсервис» (0002000020) | клиент | 15 000 000 ₽ / 36 мес., оборудование | **COUNTER_OFFER** 9 900 000 ₽ / 60 мес., «Как улучшить заявку» |
 | C | ООО «Демо Агро» (0003000030) | клиент без отчётности | 2 000 000 ₽ / 12 мес. | **NEEDS_INFO** → после показателей **APPROVED** |
-| D | ООО «Демо Ремстрой» (0004000040) | клиент | 5 000 000 ₽ / 24 мес. | **REJECTED**: просрочка 97 дней; ML 99,5% |
+| D | ООО «Демо Ремстрой» (0004000040) | клиент | 5 000 000 ₽ / 24 мес. | **REJECTED**: просрочка 97 дней |
 | E | ООО «Демо Кофейня» (0005000050) | не клиент, по ИНН | вторая точка, 4 000 000 ₽ / 36 мес. | **APPROVED** 17,5% |
-| F | ООО «Демо Старт» (0006000060) | не клиент, бизнесу 10 мес. | 800 000 ₽ / 12 мес. | **COUNTER_OFFER** 600 000 ₽ / 20 мес., «Развитие молодого бизнеса» |
+| F | ООО «Демо Старт» (0006000060) | не клиент, бизнесу 10 мес. | 800 000 ₽ / 12 мес. | **COUNTER_OFFER** 600 000 ₽ / 20 мес. |
 
-ИНН синтетические: контрольная сумма верна, код региона `00` не присвоен. Пошагово — [docs/demo-scenarios.md](docs/demo-scenarios.md).
+Пошагово — [docs/demo-scenarios.md](docs/demo-scenarios.md).
 
-### Быстрая проверка
+## API и документация
 
-1. http://localhost:3000 → **«Я клиент Альфа-Банка»** → **ООО «Демо Хлебозавод»** → **«Получить финансирование»**.
-2. **Потребность**: всё заполнено по сценарию → «Подобрать финансирование».
-3. **Подбор**: «Оборотный кредит» отмечен «Рекомендуем» → «Выбрать продукт».
-4. **Анкета**: «Заполнить демо-данными» → «Отправить на рассмотрение».
-5. **Рассмотрение** → **Решение**: «Заявка одобрена» с причинами и объяснением → «Принять» → «Подписать (симуляция)» →
-   «Получить финансирование (симуляция)» → «Смоделировать очередной платёж», «Следующие возможности».
-6. «Рабочее место банка» → KPI, фильтры, таблица → заявка: путь APPLICATION RECEIVED → … → RESULT, mock-проверки, ML-риск с факторами,
-   скоринг, решение, история переходов.
-7. Повторите для B (блок «Как улучшить заявку»), D и не клиента E: «Я пока не клиент» → ИНН `0005000050`.
+- [openapi.yaml](openapi.yaml) — OpenAPI 3.0.3; тест сверяет все маршруты Express со спецификацией и живые ответы
+  полного сценария со схемами. [DATA-API.yaml](DATA-API.yaml) — публичные read-only проверки.
+- [Postman-коллекция](postman/credit-conveyor.postman_collection.json) — сценарии A–F.
+- Основные ресурсы: `/api/health`, `/api/applications` (создание, изменение, документы, `submit`, `process`, `accept`,
+  `sign`, `issue`, `payments`), `/api/applications/:id/matches|risk|scoring|decision|improvements|explanation|events`,
+  `/api/bank/applications`. Ошибки — `{ error, code, details? }`, у каждого ответа `X-Request-Id`, команды POST
+  принимают `Idempotency-Key`.
 
-## API
-
-- [openapi.yaml](openapi.yaml) — OpenAPI 3.0.3; тест сверяет все маршруты Express со спецификацией и живые ответы полного
-  сценария со схемами. [DATA-API.yaml](DATA-API.yaml) — публичные проверки.
-  [Postman](postman/credit-conveyor.postman_collection.json) — сценарии A–F.
-
-| Метод | Путь | Назначение |
-|---|---|---|
-| GET | `/api/health` | Состояние, число продуктов и компаний, ключевая ставка, версия ML, статус AI |
-| GET | `/api/credit/products` | Каталог (и подбор по параметрам) |
-| GET | `/api/demo/companies`, `/api/companies/:inn` | Демо-компании; компания по ИНН |
-| POST · GET | `/api/applications` | Создать заявку · список (`?inn=`) |
-| GET · PATCH | `/api/applications/:id` | Заявка · изменение (`version` — оптимистичная блокировка) |
-| GET | `/api/applications/:id/matches` | Шаг «Подбор» |
-| POST | `/api/applications/:id/documents` | Метаданные документа (файл остаётся в браузере) |
-| POST | `/api/applications/:id/submit`, `/process` | Отправка; рассмотрение (атомарно, идемпотентно) |
-| GET | `/api/applications/:id/risk`, `/scoring`, `/decision`, `/events` | ML-оценка, скоринг, решение, история |
-| GET | `/api/applications/:id/improvements` | «Как улучшить заявку» |
-| GET | `/api/applications/:id/explanation?kind=decision\|improvements` | Объяснение (LLM или шаблон) |
-| POST | `/api/applications/:id/accept`, `/sign`, `/issue`, `/payments` | Принятие; подписание, выдача, платёж — симуляция |
-| POST | `/api/assistant/parse-need` | Разбор текста потребности |
-| GET | `/api/bank/applications`, `/api/bank/applications/:id` | Банковская сторона |
-
-Ошибки — `{ error, code, details? }`. Каждый ответ содержит `X-Request-Id`; команды POST принимают `Idempotency-Key`.
+| Документ | О чём |
+|---|---|
+| [product-concept](docs/product-concept.md), [research](docs/research.md) | Идея, проблема, проверка гипотез |
+| [five-step-client-journey](docs/five-step-client-journey.md), [client-vs-nonclient](docs/client-vs-nonclient.md), [post-credit-support](docs/post-credit-support.md) | Клиентский путь |
+| [architecture](docs/architecture.md), [application-state-machine](docs/application-state-machine.md), [data-model](docs/data-model.md) | Устройство системы |
+| [scoring-and-decision](docs/scoring-and-decision.md), [ml-risk-model](docs/ml-risk-model.md), [llm-architecture](docs/llm-architecture.md) | Оценка и объяснение |
+| [integrations](docs/integrations.md), [deployment](docs/deployment.md) | Mock-провайдеры, запуск, деплой |
+| [design-system](docs/design-system.md), [demo-scenarios](docs/demo-scenarios.md), [test-scenarios](docs/test-scenarios.md), [assumptions](docs/assumptions.md) | Интерфейс, сценарии, тесты, допущения |
 
 ## Тесты
 
 ```bash
-npm test                 # frontend + API: unit, API, контракт OpenAPI, паритет ML, LLM-фолбэк
+npm test                                   # frontend + API: unit, API, контракт OpenAPI, паритет ML с Python, LLM-фолбэк
 npm run build
-npm run test:production --prefix miniapp
-node --test ops/deploy.test.cjs
-# E2E (нужны запущенные API и frontend):
+npm run test:production --prefix miniapp   # production-сервер frontend
+node --test ops/deploy.test.cjs            # конфигурация деплоя
+npm run smoke:docker                       # docker compose с нуля: healthcheck, сценарии A–F через nginx, перезапуск
+# E2E в браузере (нужны запущенные API и frontend):
 npx --prefix miniapp playwright install chromium webkit
 OPORA_UI_ENGINE=chromium,webkit npm run test:e2e
-npm run smoke:docker
 ```
 
-Состав — [docs/test-scenarios.md](docs/test-scenarios.md).
+E2E проходит сценарии A–F через интерфейс на 1280 и 390 px: нет горизонтальной прокрутки и ошибок консоли, цели нажатия
+на телефоне не меньше 40 px. Состав — [docs/test-scenarios.md](docs/test-scenarios.md).
+
+## Исследование и продуктовые решения
+
+Команда изучила материалы кейса, разобрала кредитный процесс и клиентский путь и провела качественную валидацию
+продуктовых гипотез в интервью с владельцем действующего бизнеса. Связь «проблема → решение», принятые решения и
+границы исследования — [docs/research.md](docs/research.md).
 
 ## Ограничения и допущения
 
 - Всё синтетическое: данные, продукты, ставки, скоринг, правила, ML-модель. Это демонстрация процесса, не банковская система.
-- ФНС, БКИ, финансовые данные и «данные банка» о клиенте — локальные mock без сети.
-- Роли без авторизации; «вход клиента» — выбор демо-компании.
-- Документы не загружаются на сервер (тип, имя, размер, число символов, извлечённых в браузере; OCR — tesseract.js локально).
+- ФНС, БКИ, финансовые данные и «данные банка» о клиенте — локальные mock-провайдеры без сети.
+- Роли без авторизации: «вход клиента» — выбор демо-компании, рабочее место банка открыто всем.
+- Документы не загружаются на сервер: передаются тип, имя, размер и число символов, извлечённых в браузере.
 - Подписание, выдача и платежи моделируются; денег и проводок нет.
-- ML-модель обучена на сгенерированных данных: её метрики показывают качество метода, а не реальный кредитный риск.
+- ML-модель обучена на сгенерированных данных: метрики показывают качество метода, а не реальный кредитный риск.
 - LLM необязателен; без него объяснения формируются шаблонами.
 
 Полный список — [docs/assumptions.md](docs/assumptions.md).
 
-## Лицензии
+## Сторонние компоненты
 
-Сторонние компоненты — [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). История предыдущего продукта проекта
-сохранена в [docs/archive/opora-funding](docs/archive/opora-funding/README.md).
+Лицензии зависимостей, смоделированные и необязательные интеграции — [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
