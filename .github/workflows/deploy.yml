@@ -54,7 +54,8 @@ jobs:
 
           "${SCP[@]}" \
             ops/deploy.cjs \
-            "${SERVER_USER}@${SERVER_HOST}:/opt/alfa-opora-deploy/deploy.cjs"
+            ops/production.cjs \
+            "${SERVER_USER}@${SERVER_HOST}:/opt/alfa-opora-deploy/"
 
           "${SSH[@]}" "
             set -euo pipefail
