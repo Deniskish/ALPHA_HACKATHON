@@ -164,7 +164,6 @@ svg { flex: none; }
 
 /* Steps */
 .op-steps { padding: 18px 28px; border-radius: 999px; background: var(--op-surface); box-shadow: var(--op-shadow); overflow-x: auto; }
-.op-steps-compact { display: none; margin: 0 0 8px; font-size: 14px; color: var(--op-muted); }
 .op-status-box { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; max-width: 440px; text-align: right; font-size: 14px; }
 
 /* Chips */
@@ -599,6 +598,65 @@ svg { flex: none; }
 .op-bank .op-reasons { grid-template-columns: 1fr; }
 .op-bank .op-reasons li { padding: 10px 12px; font-size: 14px; border-radius: 10px; }
 
+/* ========== Phone patterns of the original «Опора», in Alfa styling ========== */
+/* Round 44 px header actions. */
+.op-round-button {
+  display: inline-grid; place-items: center; flex: none; width: 44px; height: 44px; border-radius: 50%; color: var(--op-ink-strong);
+  background: var(--op-surface); box-shadow: var(--shadow-xs); text-decoration: none;
+}
+.op-round-button svg { width: 22px; height: 22px; }
+.op-page-back { display: none; }
+/* Disclosure row: secondary information one tap away («Условия программы ›»). */
+.op-reveal { border-radius: 16px; background: var(--op-surface-2); }
+.op-reveal > summary {
+  display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 12px 16px; cursor: pointer; list-style: none; font-weight: 600; font-size: 15px;
+}
+.op-reveal > summary::-webkit-details-marker, .op-steps-all > summary::-webkit-details-marker { display: none; }
+.op-reveal > summary > span { flex: 1; min-width: 0; }
+.op-reveal > summary small { display: block; margin-top: 2px; font-size: 13px; font-weight: 400; color: var(--op-muted); }
+.op-reveal > summary::after, .op-steps-all > summary::after {
+  content: ''; flex: none; width: 8px; height: 8px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor;
+  transform: translateY(-2px) rotate(45deg); transition: transform .2s; opacity: .55;
+}
+.op-reveal[open] > summary::after, .op-steps-all[open] > summary::after { transform: translateY(2px) rotate(-135deg); }
+.op-reveal-body { display: flex; flex-direction: column; gap: 10px; padding: 0 16px 16px; }
+.op-product[data-recommended="true"] .op-reveal { background: rgba(255, 255, 255, 0.07); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08); }
+.op-product[data-recommended="true"] .op-reveal > summary small { color: rgba(255, 255, 255, 0.6); }
+/* The main action of a long flow, pinned above the home indicator; at the end of the flow it rests in place. */
+.op-cta-bar {
+  position: sticky; bottom: 0; z-index: 25; display: flex; flex-direction: column; gap: 8px; margin: 0 calc(-1 * var(--op-gutter));
+  padding: 12px var(--op-gutter) calc(12px + env(safe-area-inset-bottom)); background: rgba(255, 255, 255, 0.86);
+  backdrop-filter: saturate(1.6) blur(18px); -webkit-backdrop-filter: saturate(1.6) blur(18px);
+  border-top: 1px solid rgba(15, 25, 55, 0.06); box-shadow: 0 -10px 30px rgba(15, 25, 55, 0.06);
+}
+.op-cta-bar .op-field-error { text-align: center; }
+/* Phone stepper: current step, five segments, the full list on demand. */
+.op-steps-mobile { position: relative; display: block; padding: 14px 16px 16px; border-radius: 20px; overflow: visible; }
+.op-steps-now { display: flex; flex-direction: column; padding-right: 116px; line-height: 1.3; }
+.op-steps-now strong { font-size: 18px; letter-spacing: -0.01em; color: var(--op-ink-strong); }
+.op-steps-bar { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; margin-top: 12px; }
+.op-steps-bar i { height: 4px; border-radius: 2px; background: var(--op-track); }
+.op-steps-bar i[data-state="done"] { background: var(--op-ink-strong); }
+.op-steps-bar i[data-state="current"] { background: var(--op-accent); }
+.op-steps-all > summary {
+  position: absolute; top: 6px; right: 6px; display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px;
+  border-radius: 999px; color: var(--op-accent); font-size: 14px; font-weight: 600; cursor: pointer; list-style: none;
+}
+.op-steps-all[open] > :not(summary) { margin-top: 14px; }
+.op-explanation-more { align-self: flex-start; }
+/* Bank application as a card (phones and narrow tablets): score, ML risk and decision visible at once. */
+.op-bank-row { gap: 8px; padding: 16px; border-radius: 16px; background: var(--op-surface); box-shadow: var(--shadow-xs); }
+.op-bank-row-company { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 15px; }
+.op-bank-row-company .op-tag { margin-left: 0; }
+.op-bank-row-amount { font-size: 14px; }
+.op-bank-row-amount .op-money { font-weight: 700; font-size: 16px; }
+.op-bank-row-metrics {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 12px; margin-top: 4px; padding-top: 12px; border-top: 1px solid var(--op-line);
+}
+.op-bank-row-metrics > span { display: flex; flex-direction: column; gap: 4px; min-width: 0; font-size: 14px; }
+.op-bank-row-metrics > span:last-child { grid-column: 1 / -1; flex-direction: row; align-items: center; gap: 10px; }
+.op-bank-row-metrics small { font-size: 11px; color: var(--op-muted); }
+
 /* ========== Responsive (desktop first) ========== */
 @media (max-width: 1180px) {
   .op-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -630,47 +688,216 @@ svg { flex: none; }
   .op-sidebar-user { display: none; }
   .op-bank-main { padding: 20px 16px 48px; }
 }
+/* Narrow tablet: bank cards two per row instead of stretched to the full width. */
+@media (min-width: 641px) and (max-width: 960px) {
+  .op-bank .op-list.op-mobile-only { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+}
 @media (max-width: 640px) {
-  :root { --op-gutter: 12px; }
+  :root { --op-gutter: 16px; }
+  html { scroll-padding-top: 76px; scroll-padding-bottom: 112px; }
   body { font-size: 15px; }
-  .op-main { padding-top: 16px; }
-  .op-topbar { flex-wrap: wrap; padding-block: 10px; gap: 10px; }
-  .op-brand-tagline { display: none; }
-  .op-topbar-actions { margin-left: auto; }
-  .op-topbar-actions:has(.op-company-chip) { width: 100%; justify-content: space-between; }
-  .op-shell-link span { display: none; }
-  .op-company-chip { max-width: calc(100vw - 90px); }
-  .op-card, .op-product, .op-verdict, .op-ask, .op-preview { padding: 20px; border-radius: 22px; }
-  .op-hero { padding: 26px 22px; border-radius: 26px; gap: 8px; }
-  .op-hero h1 { font-size: 36px; }
-  .op-hero p { font-size: 16px; }
-  .op-hero-visual { min-height: 190px; }
-  .op-hero-visual .op-hero-mark { width: 300px; right: -10%; }
-  .op-float-card-rate { top: 4%; }
-  .op-float-card { padding: 10px 14px; }
-  .op-choice-card { padding: 20px; gap: 14px; }
-  .op-choice-text strong { font-size: 18px; }
-  .op-inline-form, .op-products { grid-template-columns: minmax(0, 1fr); }
-  .op-status-box { align-items: flex-start; text-align: left; max-width: none; }
-  .op-steps { padding: 12px 16px; border-radius: 22px; }
-  .op-steps-compact { display: block; }
-  .op-documents > li { flex-wrap: wrap; }
+  h3 { font-size: 16px; }
+  .op-main { padding: 12px var(--op-gutter) 32px; }
+  .op-page { gap: 16px; }
   .op-actions > * { flex: 1 1 100%; }
-  .op-offer { grid-template-columns: minmax(0, 1fr); padding: 16px; }
-  .op-offer-amount, .op-offer-rate, .op-offer-product { grid-column: auto; }
-  .op-offer-amount strong { font-size: 32px !important; }
-  .op-loan-balance strong { font-size: 36px; }
-  .op-verdict-mark { width: 240px; right: -70px; top: -40px; }
-  .op-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .op-footer { flex-direction: column; }
-  .op-next-step { padding: 18px; }
-  .op-explanation { padding: 18px 18px 18px 54px; }
+  .op-link { display: inline-flex; align-items: center; min-height: 44px; }
+  .op-details > summary { margin-bottom: 0; padding: 12px 0; }
+  .op-footer { flex-direction: column; gap: 10px; padding: 16px var(--op-gutter) calc(20px + env(safe-area-inset-bottom)); font-size: 11px; }
+
+  /* Header: one row — logo, company, round bank button. */
+  .op-topbar { flex-wrap: nowrap; gap: 10px; min-height: 60px; padding: 8px var(--op-gutter); }
+  .op-brand-tagline { display: none; }
+  .op-brand { min-height: 44px; }
+  .op-topbar .op-logo { height: 22px !important; }
+  .op-topbar-actions { flex: 1; justify-content: flex-end; gap: 8px; }
+  .op-company-chip { min-width: 0; max-width: none; min-height: 44px; padding: 4px 12px 4px 4px; gap: 8px; }
+  .op-company-avatar { width: 36px; height: 36px; }
+  .op-company-chip-text strong { font-size: 13px; }
+  .op-company-chip-text small { font-size: 11px; }
+  .op-shell-link { flex: none; justify-content: center; width: 44px; height: 44px; padding: 0; background: var(--op-surface-2); }
+  .op-shell-link span { display: none; }
+
+  /* Flow pages: ‹ back, title and status instead of breadcrumbs and a big title block. */
+  .op-flow-page .op-breadcrumbs { display: none; }
+  .op-page-header[data-back] { display: grid; grid-template-columns: 44px minmax(0, 1fr); align-items: center; gap: 10px 12px; }
+  .op-page-header[data-back] .op-page-back { display: inline-grid; }
+  .op-page-header[data-back] .op-eyebrow { display: none; }
+  .op-page-header[data-back] h1 { font-size: 22px; line-height: 28px; }
+  .op-page-header[data-back] .op-page-subtitle { margin-top: 0; font-size: 13px; }
+  .op-page-header[data-back] > :nth-child(3) { grid-column: 1 / -1; }
+  .op-status-box { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 6px 10px; max-width: none; text-align: left; font-size: 13px; line-height: 1.35; }
+
+  /* Surfaces: phone rhythm. */
+  .op-card { padding: 20px; gap: 14px; border-radius: 24px; }
+  .op-card-header { gap: 12px; }
+  .op-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 16px; }
+  .op-facts dd { font-size: 15px; }
+  .op-why { width: 44px; height: 44px; background: radial-gradient(circle, var(--op-surface-2) 0 13px, transparent 14px); }
+  .op-why:hover { background: radial-gradient(circle, var(--op-ink-strong) 0 13px, transparent 14px); }
+  .op-field-why { gap: 0; }
+  .op-field-why > :last-child { padding-top: 6px; margin-right: -8px; }
+
+  /* Start: compact hero with the mark in the corner, then one primary choice and the secondary one. */
+  .op-hero { padding: 24px 20px; border-radius: 28px; gap: 0; }
+  .op-hero h1 { font-size: 32px; }
+  .op-hero p { font-size: 15px; }
+  .op-hero-copy { gap: 14px; }
+  .op-hero-start .op-eyebrow { max-width: calc(100% - 110px); }
+  .op-hero-start .op-hero-visual { position: absolute; top: -24px; right: -34px; width: 150px; height: 150px; min-height: 0; }
+  .op-hero-start .op-hero-visual .op-hero-mark { width: 150px; right: 0; }
+  .op-float-card { display: none; }
+  .op-hero-steps { flex-wrap: nowrap; align-self: stretch; overflow-x: auto; margin: 2px -20px 0; padding: 0 20px 2px; scrollbar-width: none; }
+  .op-hero-steps::-webkit-scrollbar, .op-ask .op-chips::-webkit-scrollbar { display: none; }
+  .op-hero-steps li { flex: none; }
+  .op-choice { gap: 12px; }
+  .op-choice-card { padding: 18px; gap: 14px; border-radius: 24px; }
+  .op-choice-card:first-child { background: var(--op-premium-bg); box-shadow: var(--op-premium-edge), var(--shadow-m); }
+  .op-choice-card:first-child[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--op-accent), var(--op-premium-edge), var(--shadow-m); }
+  .op-choice-card:first-child .op-choice-text strong, .op-choice-card:first-child .op-choice-arrow { color: #fff; }
+  .op-choice-card:first-child .op-choice-text span { color: rgba(255, 255, 255, 0.68); }
+  .op-choice-card:first-child .op-icon-tile { --op-tile: var(--op-accent); color: #fff; }
+  .op-choice-text strong { font-size: 18px; }
+  .op-choice-text span { font-size: 14px; line-height: 1.35; }
+  .op-company-card { padding: 18px; }
+  .op-inline-form { grid-template-columns: minmax(0, 1fr); }
+  .op-confirm { padding: 18px; }
+  .op-confirm > button { width: 100%; }
+
+  /* Dashboard: the action first, then the company card; applications before the profile. */
+  .op-hero-company { gap: 20px; }
+  .op-hero-actions { align-self: stretch; gap: 10px; }
+  .op-hero-actions > button { flex: 1 1 100%; }
+  .op-hero-hint { width: 100%; text-align: center; }
+  .op-business-card { aspect-ratio: auto; gap: 4px; padding: 18px 20px; border-radius: 22px; }
+  .op-business-card-name { margin-top: 14px; font-size: 19px; }
+  .op-business-card-mark { width: 170px; right: -56px; bottom: -64px; }
+  .op-dashboard > .op-grid-2 { order: 1; }
+  .op-dashboard > .op-card { order: 2; }
+
+  /* Steps. */
+  .op-steps { padding: 12px 16px; border-radius: 20px; }
+
+  /* Step 1: one column, examples in a swipeable row, the CTA pinned at the bottom. */
+  .op-ask { padding: 20px; gap: 14px; }
+  .op-ask-head .op-eyebrow { display: none; }
+  .op-ask-head h2 { font-size: 24px; }
+  .op-ask-actions { flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 12px; }
+  .op-ask .op-chips { flex-wrap: nowrap; overflow-x: auto; margin: 0 -20px; padding: 0 20px; scrollbar-width: none; }
+  .op-chip { flex: none; min-height: 44px; }
+  .op-need { gap: 16px; }
+  /* Long purposes («Пополнение оборотных средств») wrap inside the tag instead of widening the card on 360 px. */
+  .op-purposes, .op-purposes [class*="radio-group__radioList"] { flex-wrap: wrap; min-width: 0; max-width: 100%; }
+  .op-purposes label { min-width: 0; max-width: 100%; }
+  .op-purposes button { max-width: 100%; height: auto; min-height: 48px; padding-block: 8px; text-align: left; }
+  .op-purposes button span { white-space: normal; }
+  .op-preview { min-height: 0; padding: 20px; }
+  .op-preview-amount { font-size: 30px; }
+
+  /* Step 2: the recommended offer first, numbers large, reasons folded. */
+  .op-products { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  .op-product { padding: 20px; gap: 12px; border-radius: 24px; }
+  .op-product[data-recommended="true"] { order: -1; }
+  .op-price { padding: 14px; gap: 10px 12px; }
+  .op-price-rate .op-rate-total { font-size: 26px; }
+  .op-price strong { font-size: 17px; }
+
+  /* Step 3: compact readiness on top, the submit pinned at the bottom. */
+  .op-workspace { gap: 16px; }
+  .op-readiness { gap: 12px; }
+  .op-readiness-head { gap: 14px; }
+  .op-readiness-head h2 { font-size: 17px; }
+  .op-todo button { min-height: 48px; }
+  .op-documents > li { flex-wrap: wrap; gap: 8px 12px; padding: 14px; }
+  .op-documents > li > div:nth-child(2) { flex: 1 1 calc(100% - 40px); }
+  .op-document-actions { width: 100%; padding-left: 38px; }
+  .op-file-button { align-items: center; min-height: 44px; }
+
+  /* Step 5: decision, terms, why, next, improvements. */
+  .op-verdict { padding: 22px 20px; gap: 10px; border-radius: 28px; }
+  .op-verdict h2 { font-size: 28px; }
+  .op-result-summary { font-size: 16px; }
+  .op-verdict-mark { width: 200px; right: -64px; top: -48px; }
+  .op-offer { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 12px; padding: 16px; border-radius: 20px; }
+  .op-offer-amount, .op-offer-rate, .op-offer-product { grid-column: 1 / -1; }
+  /* Term and payment side by side under the amount; rate and product below. */
+  .op-offer-amount { order: -1; }
+  .op-offer-rate { order: 2; }
+  .op-offer-product { order: 3; }
+  .op-offer-requested { white-space: nowrap; }
+  .op-offer-amount strong { font-size: 34px !important; }
+  .op-offer strong, .op-offer .op-rate-total { font-size: 19px; }
+  .op-reasons { gap: 0; }
+  .op-reasons li, .op-bank .op-reasons li { padding: 12px 0; border-radius: 0; background: none; font-size: 15px; }
+  .op-reasons li + li { border-top: 1px solid var(--op-line); }
+  .op-reasons .op-reason-negative { background: none; }
+  .op-next-step { align-items: flex-start; gap: 14px; padding: 18px; }
+  .op-explanation { padding: 18px 18px 10px 54px; }
   .op-explanation-icon { left: 18px; top: 18px; }
+  .op-explanation p[data-folded] { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+  .op-spotlight { padding: 20px; }
+  .op-spotlight strong { font-size: 26px; }
+  .op-recommendations { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .op-recommendations li { display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 2px 12px; padding: 14px; }
+  .op-recommendations li > .op-icon-tile { grid-row: span 3; }
+  /* Scenarios: comparable vertical cards — terms, outcome, payment / score / risk, load bar. */
+  .op-scenarios { gap: 8px; border-radius: 0; overflow: visible; background: none; }
+  .op-scenario {
+    grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr); gap: 10px 12px; padding: 14px 16px; border-radius: 18px;
+    background: var(--op-surface-2); grid-template-areas: "name name name" "outcome outcome outcome" "pay score risk" "load load load";
+  }
+  .op-scenario + .op-scenario { border-top: 0; }
+  .op-scenario > :nth-child(1) { grid-area: name; font-size: 15px; }
+  .op-scenario > :nth-child(2) { grid-area: pay; }
+  .op-scenario > :nth-child(3) { grid-area: load; }
+  .op-scenario > :nth-child(4) { grid-area: score; }
+  .op-scenario > :nth-child(5) { grid-area: risk; }
+  .op-scenario > :nth-child(6) { grid-area: outcome; }
+  .op-scenario[data-current="true"] { background: var(--op-surface); box-shadow: inset 0 0 0 1px var(--op-line); }
+  .op-scenario[data-best] { background: var(--op-surface); box-shadow: inset 0 0 0 2px var(--op-ink-strong); }
+  .op-scenario[data-best] > :first-child::before { content: 'Лучший расчётный сценарий'; display: block; margin-bottom: 2px; color: var(--op-accent); font-size: 11px; font-weight: 700; }
+  .op-meter-track { height: 8px; }
+
+  /* Financing. */
+  .op-loan-balance strong { font-size: 36px; }
+  .op-opportunities { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .op-opportunity { display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: 4px 14px; padding: 16px; }
+  .op-opportunity > .op-icon-tile { grid-row: span 3; }
+  .op-opportunity > button { grid-column: 1 / -1; margin-top: 8px; }
+
+  /* Bank workspace: a dark one-row tool bar, cards, full-width controls. */
+  .op-sidebar { position: sticky; top: 0; z-index: 30; flex-wrap: nowrap; gap: 6px; padding: 8px 12px; }
+  .op-sidebar-brand { justify-content: center; min-height: 44px; padding: 4px; }
+  .op-sidebar-brand span { display: none; }
+  .op-sidebar-nav a, .op-sidebar-back { justify-content: center; width: 44px; height: 44px; padding: 0; }
+  .op-sidebar-nav a span, .op-sidebar-back span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .op-sidebar-nav a[aria-current="page"] { box-shadow: inset 0 -3px 0 var(--op-accent); }
+  .op-sidebar-foot { gap: 6px; }
+  .op-bank-main { padding: 16px 16px 40px; }
+  .op-bank { gap: 14px; }
+  .op-bank-header { align-items: flex-start; gap: 10px; }
+  .op-bank-header h1 { font-size: 24px; }
+  .op-bank-header > .op-row { width: 100%; justify-content: space-between; flex-wrap: nowrap; }
+  .op-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .op-kpi { padding: 12px 14px; }
+  .op-kpi strong { font-size: 19px; }
+  .op-kpi .op-kpi-text, .op-kpi .op-kpi-outcome { white-space: normal; font-size: 15px; }
+  .op-bank-toolbar { flex-direction: column; align-items: stretch; }
+  .op-bank-search { width: 100%; }
+  .op-bank-filter { margin-right: -16px; padding-right: 16px; scrollbar-width: none; -webkit-mask-image: linear-gradient(90deg, #000 82%, transparent); mask-image: linear-gradient(90deg, #000 82%, transparent); }
+  .op-back { min-height: 44px; }
+  .op-bank-detail .op-bank-header h1 { font-size: 22px; }
+  .op-bank-card { padding: 16px; }
+  .op-pipeline { font-size: 10px; }
+  .op-pipeline li { padding: 4px 8px; }
+  .op-bank-card [role="tab"] { min-height: 44px; }
+  .op-tab { padding-top: 14px; }
+  .op-analytic { padding: 14px; }
+  .op-score strong { font-size: 28px; }
 }
 
 /* Alfa Status truncates long labels; in the bank table and scenario list the full code/label matters more. */
-.op-table [class*="status__ellipsis"], .op-scenario [class*="status__ellipsis"] { overflow: visible; text-overflow: clip; white-space: nowrap; }
-.op-table [class*="status__component"], .op-scenario [class*="status__component"] { max-width: none; }
+.op-table [class*="status__ellipsis"], .op-scenario [class*="status__ellipsis"], .op-spotlight [class*="status__ellipsis"] { overflow: visible; text-overflow: clip; white-space: nowrap; }
+.op-table [class*="status__component"], .op-scenario [class*="status__component"], .op-spotlight [class*="status__component"] { max-width: none; }
 /* Neutral icon tiles on grey cards stay visible on a white tile. */
 .op-recommendations .op-icon-tile[data-tone="neutral"], .op-opportunity .op-icon-tile[data-tone="neutral"],
 .op-company-card .op-icon-tile[data-tone="neutral"] { --op-tile: #fff; }

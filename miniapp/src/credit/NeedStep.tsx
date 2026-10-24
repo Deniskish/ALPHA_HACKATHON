@@ -12,7 +12,7 @@ import { ArrowRightMIcon } from '@alfalab/icons-glyph/ArrowRightMIcon';
 import { CalculatorMIcon } from '@alfalab/icons-glyph/CalculatorMIcon';
 import { ChartPieCoinsMIcon } from '@alfalab/icons-glyph/ChartPieCoinsMIcon';
 import { creditApi, type ApplicationView } from './api';
-import { ErrorNote, FlowSteps, formatPercent, Money, Note, PageTitle, Section, SyntheticBadge, Why } from './ui';
+import { CtaBar, ErrorNote, FlowSteps, formatPercent, Money, Note, PageTitle, Section, SyntheticBadge, useCompact, Why } from './ui';
 import { errorMessage, groupDigits, monthlyPayment, months, parseAmount } from './format';
 import type { ProductMatch } from '../../api-server/credit/matching';
 import { navigate } from './routes';
@@ -41,9 +41,9 @@ export function NeedStep({ session }: { session: DemoSession }) {
       navigate({ name: 'application', id: view.application.id, stage: 'match' });
     } catch (e) { setError(errorMessage(e)); }
   };
-  return <div className="op-page">
+  return <div className="op-page op-flow-page">
     <nav className="op-breadcrumbs"><a href="#/">Кабинет</a><span>Новое финансирование</span></nav>
-    <PageTitle eyebrow={company.name} title="Новое финансирование" subtitle="Начнём с задачи бизнеса — продукт подберём сами." />
+    <PageTitle eyebrow={company.name} title="Новое финансирование" subtitle="Начнём с задачи бизнеса — продукт подберём сами." back="#/" />
     <FlowSteps current={0} />
     <NeedForm initial={initial} nonClient={session.relationship === 'non_client'} demoInn={company.isSynthetic ? company.inn : null}
       companyName={company.name} preview={{ inn: session.manual ? undefined : company.inn, registrationDate: company.registrationDate }}
@@ -136,6 +136,8 @@ function NeedForm({ initial, nonClient, demoInn, companyName, preview, submitLab
   };
   const best = indicative?.best;
   const payment = best && amount ? monthlyPayment(amount, best.pricing.rate, term) : null;
+  const compact = useCompact();
+  const cta = <Button view="accent" size={56} block type="submit" loading={busy} disabled={parsing} rightAddons={<ArrowRightMIcon />}>{submitLabel}</Button>;
   return <form className="op-need" onSubmit={submit}>
     <div className="op-need-main">
       <section className="op-card op-ask">
@@ -199,7 +201,8 @@ function NeedForm({ initial, nonClient, demoInn, companyName, preview, submitLab
         </> : <p className="op-preview-empty">Опишите задачу или выберите цель и сумму — здесь появится ориентировочный платёж.</p>}
       </div>
       {(problem || error) && <ErrorNote error={problem || error} />}
-      <Button view="accent" size={56} block type="submit" loading={busy} disabled={parsing} rightAddons={<ArrowRightMIcon />}>{submitLabel}</Button>
+      {!compact && cta}
     </aside>
+    {compact && <CtaBar>{cta}</CtaBar>}
   </form>;
 }

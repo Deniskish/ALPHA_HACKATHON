@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { Button } from '@alfalab/core-components-button';
 import { creditApi, type ApplicationView, type MatchesView } from './api';
-import { ErrorNote, Facts, formatPercent, IconTile, Loading, Money, Note, Rate, Section, SyntheticBadge } from './ui';
+import { ErrorNote, Facts, formatPercent, IconTile, Loading, Money, Note, Rate, Reveal, Section, SyntheticBadge } from './ui';
 import { purposeIcons } from './purpose-icons';
 import { CheckmarkMIcon } from '@alfalab/icons-glyph/CheckmarkMIcon';
 import { CrossMIcon } from '@alfalab/icons-glyph/CrossMIcon';
@@ -60,6 +60,21 @@ export function MatchStep({ view, onChange }: { view: ApplicationView; onChange:
 
 function ProductCard({ match, selected, disabled, busy, onChoose }: { match: ProductMatch; selected: boolean; disabled: boolean; busy: boolean; onChoose: () => void }) {
   const { product, pricing, eligible } = match;
+  const failed = eligible ? undefined : match.checks.find((check) => !check.ok);
+  const fit = <>
+    <h4>{eligible ? 'Почему подходит' : 'Почему не подходит'}</h4>
+    <ul className="op-checks">{match.checks.map((check) => <li key={check.code} data-ok={check.ok}>{check.ok ? <CheckmarkMIcon aria-hidden="true" /> : <CrossMIcon aria-hidden="true" />}{check.text}</li>)}
+      {eligible && match.fitReasons.slice(match.checks.length).map((reason) => <li key={reason} data-ok="true"><CheckmarkMIcon aria-hidden="true" />{reason}</li>)}</ul>
+  </>;
+  const caveats = <>
+    {match.risks.length > 0 && <><h4>Риски</h4><ul className="op-checks">{match.risks.map((risk) => <li key={risk} data-ok="warn"><ExclamationCircleMIcon aria-hidden="true" />{risk}</li>)}</ul></>}
+    {match.alternatives.length > 0 && <><h4>Альтернативы</h4><ul className="op-checks">{match.alternatives.map((alt) => <li key={alt} data-ok="alt"><ArrowRightMIcon aria-hidden="true" />{alt}</li>)}</ul></>}
+    <details className="op-details">
+      <summary>Какие данные использованы и ограничения</summary>
+      <ul className="op-plain">{match.dataUsed.map((item) => <li key={item}>{item}</li>)}</ul>
+      <ul className="op-plain">{match.constraints.map((item) => <li key={item}>{item}</li>)}</ul>
+    </details>
+  </>;
   return <article className="op-product" data-eligible={eligible} data-recommended={match.recommended} data-product={product.id}>
     <header>
       <IconTile icon={purposeIcons[product.purposes[0]]} tone={match.recommended ? 'inverted' : 'neutral'} size={48} />
@@ -77,16 +92,8 @@ function ProductCard({ match, selected, disabled, busy, onChoose }: { match: Pro
         <small data-status={match.affordability.status}>{affordabilityText[match.affordability.status]}</small></div>
       <div><span className="op-price-label">Переплата</span><strong>{match.totalCost ? <Money value={match.totalCost} /> : '—'}</strong><small>ориентировочно</small></div>
     </div>
-    <h4>{eligible ? 'Почему подходит' : 'Почему не подходит'}</h4>
-    <ul className="op-checks">{match.checks.map((check) => <li key={check.code} data-ok={check.ok}>{check.ok ? <CheckmarkMIcon aria-hidden="true" /> : <CrossMIcon aria-hidden="true" />}{check.text}</li>)}
-      {eligible && match.fitReasons.slice(match.checks.length).map((reason) => <li key={reason} data-ok="true"><CheckmarkMIcon aria-hidden="true" />{reason}</li>)}</ul>
-    {match.risks.length > 0 && <><h4>Риски</h4><ul className="op-checks">{match.risks.map((risk) => <li key={risk} data-ok="warn"><ExclamationCircleMIcon aria-hidden="true" />{risk}</li>)}</ul></>}
-    {match.alternatives.length > 0 && <><h4>Альтернативы</h4><ul className="op-checks">{match.alternatives.map((alt) => <li key={alt} data-ok="alt"><ArrowRightMIcon aria-hidden="true" />{alt}</li>)}</ul></>}
-    <details className="op-details">
-      <summary>Какие данные использованы и ограничения</summary>
-      <ul className="op-plain">{match.dataUsed.map((item) => <li key={item}>{item}</li>)}</ul>
-      <ul className="op-plain">{match.constraints.map((item) => <li key={item}>{item}</li>)}</ul>
-    </details>
+    {match.recommended ? <>{fit}<Reveal summary="Риски, альтернативы и данные">{caveats}</Reveal></>
+      : <Reveal summary={<>{eligible ? 'Почему подходит' : 'Почему не подходит'}{failed && <small>{failed.text}</small>}</>}>{fit}{caveats}</Reveal>}
     <Button view={match.recommended ? 'accent' : 'secondary'} size={56} block disabled={!eligible || disabled} loading={busy} onClick={onChoose}
       rightAddons={eligible ? <ArrowRightMIcon /> : undefined}>
       {eligible ? (selected ? 'Продолжить с этим продуктом' : 'Выбрать продукт') : 'Недоступен'}</Button>

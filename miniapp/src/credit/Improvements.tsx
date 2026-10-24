@@ -58,7 +58,8 @@ export function Improvements({ applicationId, attempt }: { applicationId: string
           <span role="columnheader">Сценарий</span><span role="columnheader">Платёж</span><span role="columnheader">Нагрузка на прибыль</span>
           <span role="columnheader">Оценка</span><span role="columnheader">Риск</span><span role="columnheader">Ориентировочный результат</span>
         </div>
-        {[data.current, ...data.scenarios].map((s) => <div key={`${s.amount}-${s.termMonths}`} className="op-scenario" role="row" data-current={s.current} data-outcome={s.outcome}>
+        {[data.current, ...data.scenarios].map((s) => <div key={`${s.amount}-${s.termMonths}`} className="op-scenario" role="row" data-current={s.current} data-outcome={s.outcome}
+          data-best={s === best && !data.hardStop ? true : undefined}>
           <span role="cell" data-label="Сценарий"><strong><Money value={s.amount} /></strong> на {months(s.termMonths)}{s.current && <em> · текущая заявка</em>}</span>
           <span role="cell" data-label="Платёж"><Money value={s.monthlyPayment} /></span>
           <span role="cell" data-label="Нагрузка на прибыль"><LoadMeter share={s.paymentToProfit} status={s.affordability} /></span>

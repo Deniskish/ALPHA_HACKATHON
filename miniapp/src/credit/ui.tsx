@@ -1,6 +1,6 @@
 // Building blocks of «Опора» on top of the Alfa design system (@alfalab/core-components, @alfalab/icons-glyph).
 // The only own visual asset is the original «Опора» logo.
-import type { ComponentType, ReactNode, SVGProps } from 'react';
+import { useSyncExternalStore, type ComponentType, type ReactNode, type SVGProps } from 'react';
 import { Status } from '@alfalab/core-components-status';
 import { Steps } from '@alfalab/core-components-steps';
 import { Tooltip } from '@alfalab/core-components-tooltip';
@@ -13,6 +13,7 @@ import { CheckmarkCircleMIcon } from '@alfalab/icons-glyph/CheckmarkCircleMIcon'
 import { ExclamationCircleMIcon } from '@alfalab/icons-glyph/ExclamationCircleMIcon';
 import { CrossCircleMIcon } from '@alfalab/icons-glyph/CrossCircleMIcon';
 import { InformationCircleMIcon } from '@alfalab/icons-glyph/InformationCircleMIcon';
+import { ArrowBackMIcon } from '@alfalab/icons-glyph/ArrowBackMIcon';
 import type { ApplicationState, DecisionOutcome, DecisionReason } from '../../api-server/credit/types';
 import { clientStateLabels, outcomeLabels } from '../../api-server/credit/labels';
 import wordmarkGraphite from '../assets/brand/wordmark-graphite.webp';
@@ -22,6 +23,28 @@ import markSilver from '../assets/brand/mark-silver.webp';
 import heroMark from '../assets/brand/hero-mark.webp';
 
 export type GlyphIcon = ComponentType<SVGProps<SVGSVGElement>>;
+
+/** Phone layout (≤640 px). Only presentation depends on it: what is folded and where the main action sits — never data or actions. */
+const compactQuery = '(max-width: 640px)';
+const subscribeCompact = (onChange: () => void) => {
+  const media = matchMedia(compactQuery);
+  media.addEventListener?.('change', onChange);
+  return () => media.removeEventListener?.('change', onChange);
+};
+export function useCompact() {
+  return useSyncExternalStore(subscribeCompact, () => matchMedia(compactQuery).matches, () => false);
+}
+
+/** Secondary information: always visible on wide screens, a disclosure row on phones (the «Условия программы ›» pattern of the original «Опора»). */
+export function Reveal({ summary, children, className = '' }: { summary: ReactNode; children: ReactNode; className?: string }) {
+  if (!useCompact()) return <>{children}</>;
+  return <details className={`op-reveal ${className}`}><summary><span>{summary}</span></summary><div className="op-reveal-body">{children}</div></details>;
+}
+
+/** The main action of a long phone screen, pinned to the bottom edge above the iPhone home indicator. */
+export function CtaBar({ children }: { children: ReactNode }) {
+  return <div className="op-cta-bar">{children}</div>;
+}
 export const SYNTHETIC_LABEL = 'Синтетические демонстрационные данные';
 
 /** Original «Опора» logo: 3D wordmark «опора.» or the «O.» sign, graphite on light and silver on dark surfaces. */
@@ -84,9 +107,10 @@ export function OutcomeBadge({ outcome }: { outcome: DecisionOutcome }) {
   return <span className="op-status" data-outcome={outcome}><Status color={tone(outcome)} view="soft">{outcomeLabels[outcome]}</Status></span>;
 }
 
-export function PageTitle({ title, subtitle, eyebrow, aside }: { title: string; subtitle?: ReactNode; eyebrow?: string; aside?: ReactNode }) {
-  return <header className="op-page-header">
-    <div>
+export function PageTitle({ title, subtitle, eyebrow, aside, back }: { title: string; subtitle?: ReactNode; eyebrow?: string; aside?: ReactNode; back?: string }) {
+  return <header className="op-page-header" data-back={back ? true : undefined}>
+    {back && <a className="op-round-button op-page-back" href={back} aria-label="Назад в кабинет"><ArrowBackMIcon aria-hidden="true" /></a>}
+    <div className="op-page-heading">
       {eyebrow && <span className="op-eyebrow">{eyebrow}</span>}
       <Typography.TitleResponsive tag="h1" view="large" font="system" weight="bold">{title}</Typography.TitleResponsive>
       {subtitle && <p className="op-page-subtitle">{subtitle}</p>}
@@ -154,11 +178,20 @@ export function Loading({ text = 'Загружаем…' }: { text?: string }) {
 /** The five visible stages of one credit application. */
 export const flowSteps = ['Потребность', 'Подбор', 'Анкета', 'Рассмотрение', 'Решение'] as const;
 export function FlowSteps({ current, onSelect, reachable = current }: { current: number; onSelect?: (index: number) => void; reachable?: number }) {
-  return <nav className="op-steps" aria-label="Этапы получения финансирования">
-    <p className="op-steps-compact" aria-hidden="true">Шаг {current + 1} из {flowSteps.length} · <strong>{flowSteps[current]}</strong></p>
-    <Steps activeStep={current + 1} isMarkCompletedSteps interactive={!!onSelect}
-      checkIsStepDisabled={(step) => step - 1 > reachable} onChange={(step) => onSelect?.(step - 1)}>
-      {flowSteps.map((step, index) => <span key={step} aria-current={index === current ? 'step' : undefined}>{step}</span>)}
-    </Steps>
+  const compact = useCompact();
+  const steps = <Steps activeStep={current + 1} isMarkCompletedSteps interactive={!!onSelect} isVerticalAlign={compact} minSpaceBetweenSteps={compact ? 8 : undefined}
+    checkIsStepDisabled={(step) => step - 1 > reachable} onChange={(step) => onSelect?.(step - 1)}>
+    {flowSteps.map((step, index) => <span key={step} aria-current={index === current ? 'step' : undefined}>{step}</span>)}
+  </Steps>;
+  // Phone: the current step and a five-segment progress; the full list is one tap away.
+  if (compact) return <nav className="op-steps op-steps-mobile" aria-label="Этапы получения финансирования">
+    <div className="op-steps-now">
+      <span className="op-muted op-small">Шаг {current + 1} из {flowSteps.length}</span>
+      <strong>{flowSteps[current]}</strong>
+    </div>
+    <span className="op-steps-bar" aria-hidden="true">{flowSteps.map((step, index) =>
+      <i key={step} data-state={index < current ? 'done' : index === current ? 'current' : 'todo'} />)}</span>
+    <details className="op-steps-all"><summary>Все шаги</summary>{steps}</details>
   </nav>;
+  return <nav className="op-steps" aria-label="Этапы получения финансирования">{steps}</nav>;
 }

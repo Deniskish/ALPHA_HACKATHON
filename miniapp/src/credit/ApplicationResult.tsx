@@ -10,7 +10,7 @@ import { ChartPieCoinsMIcon } from '@alfalab/icons-glyph/ChartPieCoinsMIcon';
 import { ClockMIcon } from '@alfalab/icons-glyph/ClockMIcon';
 import { BulbMIcon } from '@alfalab/icons-glyph/BulbMIcon';
 import { creditApi, type ApplicationView } from './api';
-import { ErrorNote, Facts, HeroMark, IconTile, Logo, Money, OutcomeBadge, ProgressBar, Rate, ReasonList, Section, type GlyphIcon } from './ui';
+import { ErrorNote, Facts, HeroMark, IconTile, Logo, Money, OutcomeBadge, ProgressBar, Rate, ReasonList, Reveal, Section, type GlyphIcon } from './ui';
 import { errorMessage, formatDate, formatDateTime, months } from './format';
 import { navigate } from './routes';
 import { Improvements } from './Improvements';
@@ -95,9 +95,11 @@ export function ApplicationResult({ view, onChange }: { view: ApplicationView; o
 
 function History({ view }: { view: ApplicationView }) {
   return <Section title="История заявки" icon={ClockMIcon} className="op-history">
-    <ol className="op-history-list">{view.timeline.map((event) => <li key={event.sequence}>
-      <span className="op-muted">{formatDateTime(event.createdAt)}</span>{event.message}
-    </li>)}</ol>
+    <Reveal summary={`${view.timeline.length} событий · показать`}>
+      <ol className="op-history-list">{view.timeline.map((event) => <li key={event.sequence}>
+        <span className="op-muted">{formatDateTime(event.createdAt)}</span>{event.message}
+      </li>)}</ol>
+    </Reveal>
   </Section>;
 }
 

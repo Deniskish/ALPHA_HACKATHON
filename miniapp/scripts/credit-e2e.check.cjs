@@ -10,11 +10,25 @@ const path = require('node:path');
 const url = process.env.OPORA_UI_URL || 'http://127.0.0.1:3000';
 const out = process.env.OPORA_UI_OUTPUT || path.resolve('test-results/credit-e2e');
 const engines = (process.env.OPORA_UI_ENGINE || 'chromium').split(',');
+const widths = (process.env.OPORA_UI_WIDTHS || '1280,390').split(',').map(Number);
 fs.mkdirSync(out, { recursive: true });
 
 async function noOverflow(page) {
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   assert.ok(overflow <= 1, `horizontal overflow ${overflow}px`);
+}
+
+const phone = (page) => page.viewportSize().width <= 640;
+/** Phone: no visible control smaller than a finger (Alfa controls are 40–56 px; ours aim at 44). */
+async function touchTargets(page) {
+  const small = await page.evaluate(() => [...document.querySelectorAll('button, a[href], [role="tab"], summary')].filter((el) => {
+    // Content of a closed disclosure is not shown (Chromium still lays it out); its summary is.
+    for (let d = el.parentElement?.closest('details'); d; d = d.parentElement?.closest('details'))
+      if (!d.open && !d.querySelector(':scope > summary')?.contains(el)) return false;
+    const box = el.getBoundingClientRect();
+    return box.width > 0 && box.height > 0 && box.height < 40 && !el.closest('.op-footer');
+  }).map((el) => `${(el.innerText || el.getAttribute('aria-label') || el.tagName).trim().slice(0, 30)} (${Math.round(el.getBoundingClientRect().height)}px)`));
+  assert.deepEqual(small, [], 'small touch targets');
 }
 
 async function start(page) {
@@ -44,7 +58,8 @@ async function loginNonClient(page, inn) {
 /** Steps 1–4: need → matching → questionnaire → review. */
 async function apply(page, { nonClient = false, text, validate = false } = {}) {
   await page.getByRole('button', { name: 'Получить финансирование' }).click();
-  const steps = await page.locator('.op-steps').innerText();
+  // On phones the full list sits behind «Все шаги»: all five steps must still be in the stepper.
+  const steps = await page.locator('.op-steps').textContent();
   for (const step of ['Потребность', 'Подбор', 'Анкета', 'Рассмотрение', 'Решение']) assert.match(steps, new RegExp(step));
   if (text) {
     await page.locator('textarea').first().fill(text);
@@ -60,6 +75,12 @@ async function apply(page, { nonClient = false, text, validate = false } = {}) {
   await noOverflow(page);
   await product.getByRole('button', { name: 'Выбрать продукт' }).click();
   await page.locator('.op-readiness').waitFor();
+  if (phone(page)) {
+    // Phone: the current step instead of the full stepper, and the submit pinned at the bottom of the questionnaire.
+    assert.match(await page.locator('.op-steps-now').innerText(), /Шаг 3 из 5\s+Анкета/);
+    await page.locator('.op-cta-bar .op-submit').waitFor();
+    await touchTargets(page);
+  }
   await page.locator('.op-workspace-side').getByRole('button', { name: 'Заполнить демо-данными' }).click();
   await readyToSubmit(page);
   if (validate) await checkInlineValidation(page);
@@ -129,6 +150,7 @@ async function run(engine, width, height) {
     assert.match(await page.locator('.op-improve').innerText(), /Расчётные сценарии/);
     assert.doesNotMatch(await page.locator('.op-improve').innerText(), /гарантир/i);
     await noOverflow(page); await shot('b-counter-offer');
+    if (phone(page)) await touchTargets(page);
     await page.getByRole('button', { name: 'Принять встречное предложение' }).click();
     await page.getByText('Предложение принято', { exact: true }).first().waitFor();
 
@@ -179,6 +201,7 @@ async function run(engine, width, height) {
     await page.getByRole('tab', { name: 'История' }).click();
     assert.match(await page.locator('.op-events').innerText(), /DECISION → REJECTED/);
     await noOverflow(page); await shot('bank');
+    if (phone(page)) await touchTargets(page);
 
     // Dashboard of the current company lists its applications.
     await page.getByRole('link', { name: 'Клиентский кабинет' }).click();
@@ -194,5 +217,5 @@ async function run(engine, width, height) {
 
 (async () => {
   for (const engine of engines)
-    for (const [width, height] of [[1280, 900], [390, 844]]) await run(engine, width, height);
+    for (const [width, height] of [[1280, 900], [390, 844]].filter(([w]) => widths.includes(w))) await run(engine, width, height);
 })().catch((error) => { console.error(error); process.exitCode = 1; });

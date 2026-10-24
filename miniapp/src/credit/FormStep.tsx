@@ -17,7 +17,7 @@ import { CheckmarkCircleMIcon } from '@alfalab/icons-glyph/CheckmarkCircleMIcon'
 import { ExclamationCircleMIcon } from '@alfalab/icons-glyph/ExclamationCircleMIcon';
 import { ArrowRightMIcon } from '@alfalab/icons-glyph/ArrowRightMIcon';
 import { creditApi, type ApplicationView } from './api';
-import { ErrorNote, Facts, Money, Note, ProgressBar, Section, SyntheticBadge, Why } from './ui';
+import { CtaBar, ErrorNote, Facts, Money, Note, ProgressBar, Reveal, Section, SyntheticBadge, useCompact, Why } from './ui';
 import { fieldIdOf, itemTitle, readinessSummary } from './readiness-view';
 import { businessAgeMonths, errorMessage, formatAge, formatDate, formatRub, groupDigits, months, parseAmount } from './format';
 import { navigate } from './routes';
@@ -195,6 +195,13 @@ export function FormStep({ view, onChange, onSubmit }: { view: ApplicationView; 
   const money = (key: 'amount' | 'revenue' | 'expenses' | 'debt') => (_: unknown, { value }: { value: string }) => setFields({ ...fields, [key]: groupDigits(parseAmount(value)) });
   const source = company.relationship === 'client' ? 'Данные банка' : company.isSynthetic ? 'Синтетический реестр' : company.source === 'manual' ? 'Введено вами' : 'Реестр';
   const ready = summary.ready && !localErrors.length && !dirty;
+  const compact = useCompact();
+  const submitBlock = <>
+    <Button view="accent" size={56} block className="op-submit" disabled={!!busy} loading={busy === 'save'} onClick={() => void submit()}
+      rightAddons={<ArrowRightMIcon />}>Отправить на рассмотрение</Button>
+    {!ready && attempted && localErrors.length + summary.missingRequired.length > 0 && <p className="op-field-error" role="alert">
+      {localErrors.length ? `Исправьте ${localErrors.length} ${plural(localErrors.length, 'поле', 'поля', 'полей')} — они подсвечены в анкете.` : 'Заполните отмеченные пункты.'}</p>}
+  </>;
   return <div className="op-workspace">
     <div className="op-workspace-main" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) void save(); }}>
       {requested.length > 0 && <Note view="attention" title={view.decision!.summary}>
@@ -284,7 +291,7 @@ export function FormStep({ view, onChange, onSubmit }: { view: ApplicationView; 
     <aside className="op-workspace-side">
       <section className="op-card op-readiness" data-ready={summary.ready} aria-live="polite">
         <header className="op-readiness-head">
-          <CircularProgressBar value={Math.round(summary.requiredDone / Math.max(1, summary.requiredTotal) * 100)} size={80}
+          <CircularProgressBar value={Math.round(summary.requiredDone / Math.max(1, summary.requiredTotal) * 100)} size={compact ? 64 : 80}
             view="positive" title={`${summary.requiredDone}/${summary.requiredTotal}`} />
           <div>
             <h2>{summary.headline}</h2>
@@ -295,6 +302,7 @@ export function FormStep({ view, onChange, onSubmit }: { view: ApplicationView; 
           <li key={item.code}><button type="button" onClick={() => { setAttempted(true); focusField(fieldIdOf(item.code)); }}>
             <ExclamationCircleMIcon aria-hidden="true" /><span>{itemTitle(item, fields.description).replace(/^./, (c) => c.toUpperCase())}</span><ArrowRightMIcon aria-hidden="true" />
           </button></li>)}</ul>}
+        <Reveal summary={`Полнота анкеты ${Math.round(view.readiness.completeness * 100)}% · подробнее`}>
         {summary.missingOptional.length > 0 && <div className="op-optional">
           <span className="op-muted op-small">Желательно — повысит полноту и оценку:</span>
           <ul className="op-todo op-todo-optional">{summary.missingOptional.map((item) =>
@@ -319,13 +327,12 @@ export function FormStep({ view, onChange, onSubmit }: { view: ApplicationView; 
             </li>;
           })}</ul>
         </details>
+        </Reveal>
         {company.isSynthetic && <button type="button" className="op-link" disabled={!!busy} onClick={() => void fillDemo()}>Заполнить демо-данными</button>}
-        <Button view="accent" size={56} block className="op-submit" disabled={!!busy} loading={busy === 'save'} onClick={() => void submit()}
-          rightAddons={<ArrowRightMIcon />}>Отправить на рассмотрение</Button>
-        {!ready && attempted && localErrors.length + summary.missingRequired.length > 0 && <p className="op-field-error" role="alert">
-          {localErrors.length ? `Исправьте ${localErrors.length} ${plural(localErrors.length, 'поле', 'поля', 'полей')} — они подсвечены в анкете.` : 'Заполните отмеченные пункты.'}</p>}
+        {!compact && submitBlock}
         {app.state === 'NEEDS_INFO' && <p className="op-muted op-small">Дополните анкету по списку в начале страницы — после этого её можно отправить снова.</p>}
       </section>
     </aside>
+    {compact && <CtaBar>{submitBlock}</CtaBar>}
   </div>;
 }

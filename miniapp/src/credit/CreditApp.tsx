@@ -64,12 +64,12 @@ function BankShell({ children }: { children: ReactNode }) {
         <span>Кредитный конвейер</span>
       </a>
       <nav className="op-sidebar-nav">
-        <a href="#/bank" aria-current="page"><ListBulletedMIcon aria-hidden="true" />Заявки</a>
+        <a href="#/bank" aria-current="page"><ListBulletedMIcon aria-hidden="true" /><span>Заявки</span></a>
       </nav>
       <div className="op-sidebar-foot">
         <span className="op-env">DEMO · synthetic data</span>
         <div className="op-sidebar-user"><UserMIcon aria-hidden="true" /><span>Кредитный аналитик<small>демо-роль без авторизации</small></span></div>
-        <a className="op-sidebar-back" href="#/"><ArrowBackMIcon aria-hidden="true" />Клиентский кабинет</a>
+        <a className="op-sidebar-back" href="#/"><ArrowBackMIcon aria-hidden="true" /><span>Клиентский кабинет</span></a>
       </div>
     </aside>
     <main className="op-bank-main">{children}</main>

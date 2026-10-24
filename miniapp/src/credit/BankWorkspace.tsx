@@ -9,7 +9,7 @@ import { ArrowBackMIcon } from '@alfalab/icons-glyph/ArrowBackMIcon';
 import { ArrowsCwMIcon } from '@alfalab/icons-glyph/ArrowsCwMIcon';
 import { MagnifierMIcon } from '@alfalab/icons-glyph/MagnifierMIcon';
 import { creditApi, type BankRow, type BankView } from './api';
-import { ErrorNote, Facts, formatPercent, Loading, Money, OutcomeBadge, ProgressBar, Rate, ReasonList, StatusBadge, SyntheticBadge } from './ui';
+import { ErrorNote, Facts, formatPercent, Loading, Money, OutcomeBadge, ProgressBar, Rate, ReasonList, StatusBadge, SyntheticBadge, useCompact } from './ui';
 import { errorMessage, formatDate, formatDateTime, months } from './format';
 import { navigate } from './routes';
 import { checkStatusLabels, clientStateLabels, documentLabels, outcomeLabels, providerLabels, purposeLabels, riskLabels } from '../../api-server/credit/labels';
@@ -143,10 +143,18 @@ function BankList() {
             </Table.TRow>)}</Table.TBody>
           </Table>
         </div>
-        <div className="op-mobile-only op-list">{shown.map((row) => <button key={row.id} type="button" className="op-application-card" onClick={() => open(row.id)}>
+        <div className="op-mobile-only op-list">{shown.map((row) => <button key={row.id} type="button" className="op-application-card op-bank-row" onClick={() => open(row.id)}>
           <span className="op-row"><strong className="op-mono">{row.number}</strong><StatusBadge state={row.state} internal /></span>
-          <span>{row.companyName} · {row.requestedAmount ? <Money value={row.requestedAmount} /> : '—'}</span>
-          <span className="op-muted">Скоринг {row.score ?? '—'} · ML-риск {mlText(row.mlProbability)}{row.outcome ? ` · ${row.outcome}` : ''}</span>
+          <span className="op-bank-row-company"><strong>{row.companyName}</strong>
+            <span className="op-tag" data-kind={row.relationship}>{row.relationship === 'client' ? 'клиент' : 'не клиент'}</span></span>
+          <span className="op-bank-row-amount">{row.requestedAmount ? <Money value={row.requestedAmount} /> : '—'}
+            <span className="op-muted">{row.requestedTermMonths ? ` · ${months(row.requestedTermMonths)}` : ''}{row.productName ? ` · ${row.productName}` : ''}</span></span>
+          <span className="op-bank-row-metrics">
+            <span><small>Скоринг</small><ScoreCell score={row.score} /></span>
+            <span><small>ML-риск</small>{row.mlProbability === null ? <span className="op-muted">—</span>
+              : <span><span className="op-mono">{mlText(row.mlProbability)}</span> <RiskBadge risk={row.mlRiskLevel} /></span>}</span>
+            <span><small>Решение</small>{row.outcome ? <OutcomeBadge outcome={row.outcome} /> : <span className="op-muted">—</span>}</span>
+          </span>
         </button>)}</div>
       </> : <p className="op-empty">{rows.length ? 'Нет заявок по этому фильтру.' : 'Заявок пока нет. Откройте клиентский кабинет и создайте заявку.'}</p>}
     </>}
@@ -158,6 +166,7 @@ function BankApplication({ id }: { id: string }) {
   const [view, setView] = useState<BankView | null>(null);
   const [error, setError] = useState('');
   const [tab, setTab] = useState<TabId>('overview');
+  const compact = useCompact();
   useEffect(() => {
     const controller = new AbortController();
     creditApi.bankApplication(id, controller.signal).then(setView).catch((e) => { if (e.name !== 'AbortError') setError(errorMessage(e)); });
@@ -189,7 +198,7 @@ function BankApplication({ id }: { id: string }) {
     </div>
     <section className="op-card op-bank-card">
       <Pipeline view={view} />
-      <Tabs selectedId={tab} onChange={(_, { selectedId }) => setTab(selectedId as TabId)} scrollable size="s">
+      <Tabs selectedId={tab} onChange={(_, { selectedId }) => setTab(selectedId as TabId)} scrollable size={compact ? 'm' : 's'}>
         <Tab id="overview" title="Обзор"><div className="op-tab op-grid-2">
           <Facts items={[
             ['Состояние', `${app.state} — ${clientStateLabels[app.state].title}`], ['Продукт', view.product?.name ?? '—'],

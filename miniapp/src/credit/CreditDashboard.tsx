@@ -39,7 +39,7 @@ export function CreditDashboard({ session }: { session: DemoSession }) {
   const results = apps?.filter((app) => resultStates.includes(app.state) || app.state === 'REJECTED')
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, 5) ?? [];
   const bank = company.bankProfile;
-  return <div className="op-page">
+  return <div className="op-page op-dashboard">
     <section className="op-hero op-hero-company">
       <div className="op-hero-copy">
         <span className="op-eyebrow">{session.relationship === 'client' ? 'Клиент банка · демо' : 'Пока не клиент банка · демо'}</span>
