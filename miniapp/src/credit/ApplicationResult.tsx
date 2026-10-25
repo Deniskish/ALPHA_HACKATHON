@@ -17,6 +17,7 @@ import { Improvements } from './Improvements';
 import { Explanation } from './Explanation';
 import { CashFlowSimulator } from './CashFlowSimulator';
 import { LoyaltyTrack } from './LoyaltyTrack';
+import { B2BNetworkGraph } from './B2BNetworkGraph';
 import type { OfferTerms } from '../../api-server/credit/types';
 
 function Offer({ offer, productName, requested }: { offer: OfferTerms; productName: string; requested?: { amount: number; term: number } }) {
@@ -97,6 +98,13 @@ export function ApplicationResult({ view, onChange }: { view: ApplicationView; o
           loanRate={offer.rate}
           loanTermMonths={offer.termMonths}
           existingDebt={(view.company?.financials ?? app.declaredFinancials)!.currentDebt || 0}
+        />
+      )}
+      {view.company && (
+        <B2BNetworkGraph
+          companyInn={view.company.inn}
+          companyName={view.company.name}
+          annualRevenue={(view.company.financials ?? app.declaredFinancials)?.revenue ?? 20_000_000}
         />
       )}
       {improvable && <Improvements applicationId={app.id} attempt={app.attempt} />}

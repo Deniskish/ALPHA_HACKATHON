@@ -17,6 +17,7 @@ import { processingStates } from '../../api-server/credit/state-machine';
 import type { ApplicationState, RiskLevel } from '../../api-server/credit/types';
 import { CashFlowSimulator } from './CashFlowSimulator';
 import { ModelGovernance } from './ModelGovernance';
+import { B2BNetworkGraph } from './B2BNetworkGraph';
 
 const payloadLabels: Record<string, string> = {
   active: 'Действует', registrationDate: 'Дата регистрации', okved: 'ОКВЭД', activeDebt: 'Действующий долг', overdueAmount: 'Сумма просрочки',
@@ -169,7 +170,7 @@ function BankList() {
   </div>;
 }
 
-type TabId = 'overview' | 'checks' | 'risk' | 'decision' | 'stress' | 'history';
+type TabId = 'overview' | 'checks' | 'risk' | 'decision' | 'stress' | 'network' | 'history';
 function BankApplication({ id }: { id: string }) {
   const [view, setView] = useState<BankView | null>(null);
   const [error, setError] = useState('');
@@ -289,6 +290,13 @@ function BankApplication({ id }: { id: string }) {
           ) : (
             <p className="op-empty">Для расчёта стресс-теста требуются финансовые показатели компании (выручка и расходы).</p>
           )}
+        </div></Tab>
+        <Tab id="network" title="Экосистема B2B"><div className="op-tab">
+          <B2BNetworkGraph
+            companyInn={company.inn}
+            companyName={company.name}
+            annualRevenue={(company.financials ?? app.declaredFinancials)?.revenue ?? 20_000_000}
+          />
         </div></Tab>
         <Tab id="history" title="История"><div className="op-tab">
           <ol className="op-events">{view.events.map((event) => <li key={event.id}>
