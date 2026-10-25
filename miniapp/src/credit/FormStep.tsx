@@ -26,6 +26,8 @@ import { MIN_DESCRIPTION_LENGTH, type ReadinessGroup } from '../../api-server/cr
 import { industries, industryOf } from '../../api-server/credit/industry';
 import { demoDeclaredFinancials } from '../../api-server/credit/synthetic-data';
 import type { CreditPurpose, DeclaredCreditHistory, DeclaredFinancials, DocumentType } from '../../api-server/credit/types';
+import { parseOneCStatement, DEMO_1C_STATEMENT_RAW, type ParsedOneCStatement } from '../shared/one-c-parser';
+import { OneCStatementViewer } from './OneCStatementViewer';
 
 /** «Зачем банк спрашивает это?» — one explanation per questionnaire field. */
 export const why = {
@@ -100,6 +102,48 @@ export function FormStep({ view, onChange, onSubmit }: { view: ApplicationView; 
   const touch = (name: string) => () => setTouched((prev) => prev.has(name) ? prev : new Set(prev).add(name));
   const versionRef = useRef(app.version);
   versionRef.current = app.version;
+  const [parsed1C, setParsed1C] = useState<ParsedOneCStatement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handle1CFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = String(event.target?.result || '');
+      setParsed1C(parseOneCStatement(text));
+    };
+    reader.readAsText(file);
+  };
+
+  const handleApply1C = async () => {
+    if (!parsed1C) return;
+    const revenueStr = groupDigits(parsed1C.totalInflow);
+    const expensesStr = groupDigits(parsed1C.totalOutflow);
+    setFields((prev) => ({
+      ...prev,
+      revenue: revenueStr,
+      expenses: expensesStr,
+    }));
+    await run('1c-statement', async () => {
+      await creditApi.addDocument(app.id, {
+        type: 'BANK_STATEMENT',
+        fileName: '1C_выписка_клиент_банк.txt',
+        mimeType: 'text/plain',
+        sizeBytes: 15420,
+        textCharacters: 4800,
+      });
+      return creditApi.update(app.id, {
+        declaredFinancials: {
+          revenue: parsed1C.totalInflow,
+          expenses: parsed1C.totalOutflow,
+          currentDebt: parseAmount(fields.debt) ?? 0,
+        },
+        version: versionRef.current,
+      });
+    });
+    setParsed1C(null);
+  };
   // Server responses are the source of truth for the form.
   useEffect(() => { setFields(fieldsOf(view)); }, [app.version]);
 
@@ -218,7 +262,19 @@ export function FormStep({ view, onChange, onSubmit }: { view: ApplicationView; 
         <p className="op-muted op-small">Срок работы, отрасль и регион используются в подборе продукта, скоринге и модели риска.</p>
       </Section>
       <Section title="Финансы за последний год" icon={ChartPieCoinsMIcon}
-        aside={company.relationship === 'client' && app.declaredFinancials ? <span className="op-source">подставлено по данным банка</span> : undefined}>
+        aside={<div className="op-1c-toolbar">
+          <input type="file" ref={fileInputRef} style={{ display: 'none' }} accept=".txt,.csv" onChange={handle1CFile} />
+          <Button view="secondary" size={32} onClick={() => fileInputRef.current?.click()}>Загрузить 1С</Button>
+          <Button view="outlined" size={32} onClick={() => setParsed1C(parseOneCStatement(DEMO_1C_STATEMENT_RAW))}>Демо-выписка 1С</Button>
+          {company.relationship === 'client' && app.declaredFinancials && <span className="op-source">подставлено по данным банка</span>}
+        </div>}>
+        {parsed1C && (
+          <OneCStatementViewer
+            statement={parsed1C}
+            onApply={() => void handleApply1C()}
+            onClose={() => setParsed1C(null)}
+          />
+        )}
         <div className="op-form-grid op-form-grid-3">
           <Field why={why.revenue} id="field-revenue"><Input label="Выручка, ₽" inputMode="numeric" block value={fields.revenue} onChange={money('revenue')}
             onBlur={touch('revenue')} error={errors.revenue} /></Field>
