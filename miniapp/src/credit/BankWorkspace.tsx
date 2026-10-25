@@ -16,6 +16,7 @@ import { checkStatusLabels, clientStateLabels, documentLabels, outcomeLabels, pr
 import { processingStates } from '../../api-server/credit/state-machine';
 import type { ApplicationState, RiskLevel } from '../../api-server/credit/types';
 import { CashFlowSimulator } from './CashFlowSimulator';
+import { ModelGovernance } from './ModelGovernance';
 
 const payloadLabels: Record<string, string> = {
   active: 'Действует', registrationDate: 'Дата регистрации', okved: 'ОКВЭД', activeDebt: 'Действующий долг', overdueAmount: 'Сумма просрочки',
@@ -71,6 +72,7 @@ function BankList() {
   const [error, setError] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
   const [query, setQuery] = useState('');
+  const [viewMode, setViewMode] = useState<'applications' | 'governance'>('applications');
   const load = useCallback((signal?: AbortSignal) => {
     setError('');
     creditApi.bankApplications(signal).then((data) => setRows(data.applications)).catch((e) => { if (e.name !== 'AbortError') setError(errorMessage(e)); });
@@ -94,17 +96,22 @@ function BankList() {
   return <div className="op-bank">
     <header className="op-bank-header">
       <div>
-        <span className="op-bank-crumbs">Кредитный конвейер / Заявки</span>
-        <h1>Заявки</h1>
+        <span className="op-bank-crumbs">Кредитный конвейер / {viewMode === 'applications' ? 'Заявки' : 'Аудит модели риска'}</span>
+        <h1>{viewMode === 'applications' ? 'Заявки' : 'Аудит модели риска'}</h1>
       </div>
       <div className="op-row">
+        <SegmentedControl selectedId={viewMode} onChange={(id) => setViewMode(id as 'applications' | 'governance')} size={32}>
+          <Segment id="applications" title="Заявки" />
+          <Segment id="governance" title="Аудит модели (Governance)" />
+        </SegmentedControl>
         <SyntheticBadge text="Демо-роль; проверки, модель риска и решения синтетические" />
-        <Button view="secondary" size={40} leftAddons={<ArrowsCwMIcon />} onClick={() => load()}>Обновить</Button>
+        {viewMode === 'applications' && <Button view="secondary" size={40} leftAddons={<ArrowsCwMIcon />} onClick={() => load()}>Обновить</Button>}
       </div>
     </header>
-    {error && <ErrorNote error={error} onRetry={() => load()} />}
-    {!rows && !error && <Loading text="Загружаем заявки…" />}
-    {rows && <>
+    {viewMode === 'governance' ? <ModelGovernance /> : <>
+      {error && <ErrorNote error={error} onRetry={() => load()} />}
+      {!rows && !error && <Loading text="Загружаем заявки…" />}
+      {rows && <>
       <div className="op-kpis">
         <div className="op-kpi"><span>Всего заявок</span><strong>{kpi.total}</strong></div>
         <div className="op-kpi"><span>В работе</span><strong>{kpi.work}</strong></div>
@@ -158,7 +165,7 @@ function BankList() {
           </span>
         </button>)}</div>
       </> : <p className="op-empty">{rows.length ? 'Нет заявок по этому фильтру.' : 'Заявок пока нет. Откройте клиентский кабинет и создайте заявку.'}</p>}
-    </>}
+    </>}</>}
   </div>;
 }
 
