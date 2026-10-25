@@ -20,6 +20,7 @@ import type { DemoSession } from './session';
 import { purposeLabels } from '../../api-server/credit/labels';
 import { demoDeclaredFinancials } from '../../api-server/credit/synthetic-data';
 import { creditPurposes, type CreditPurpose, type DeclaredFinancials } from '../../api-server/credit/types';
+import { GrowthRoiCalculator } from './GrowthRoiCalculator';
 
 const termOptions = [3, 6, 9, 12, 18, 24, 36, 48, 60].map((t) => ({ key: String(t), content: months(t) }));
 export type NeedValues = { purpose: CreditPurpose | null; amount: string; term: string; description: string;
@@ -170,6 +171,9 @@ function NeedForm({ initial, nonClient, demoInn, companyName, preview, submitLab
         </div>
         <Textarea label="Какую задачу бизнеса решаете" block minRows={2} maxLength={2000} value={values.description} onChange={set('description')}
           hint="Например: вторая точка в спальном районе, окупаемость 2 года" />
+        {amount && amount >= 100_000 && (
+          <GrowthRoiCalculator amount={amount} termMonths={term} />
+        )}
       </Section>
       {nonClient && <Section title="Ключевые показатели для подбора" icon={ChartPieCoinsMIcon}
         description="Банк пока не видит обороты вашей компании. Укажите показатели за последний год — подбор сразу учтёт нагрузку."

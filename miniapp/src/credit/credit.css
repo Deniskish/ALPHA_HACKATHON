@@ -2108,3 +2108,140 @@ svg { flex: none; }
 @media (max-width: 860px) {
   .op-negotiator-grid { grid-template-columns: 1fr; }
 }
+
+/* Growth ROI and Opportunity Cost Calculator */
+.op-roi-card {
+  background: var(--op-surface);
+  border: 1px solid var(--op-line);
+  border-radius: var(--op-radius, 24px);
+  padding: 24px;
+  margin-top: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  box-shadow: var(--op-shadow);
+}
+.op-roi-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.op-roi-badge {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--op-accent, #ef3124);
+  letter-spacing: 0.05em;
+}
+.op-roi-title {
+  margin: 4px 0 2px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--op-ink);
+}
+.op-roi-gain-pill {
+  background: #f0fdf4;
+  border: 1px solid rgba(13, 147, 54, 0.3);
+  border-radius: 12px;
+  padding: 8px 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+.op-roi-gain-val {
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--op-positive);
+}
+.op-roi-gain-lbl {
+  font-size: 11px;
+  color: var(--op-positive);
+  font-weight: 600;
+}
+.op-roi-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.op-roi-compare-box {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.op-roi-scenario {
+  border-radius: var(--op-radius-m);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border: 1px solid var(--op-line);
+}
+.op-sc-now {
+  background: #f7fdf9;
+  border-color: rgba(13, 147, 54, 0.4);
+}
+.op-sc-wait {
+  background: #fff9f9;
+  border-color: rgba(239, 49, 36, 0.25);
+}
+.op-sc-tag {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--op-muted);
+}
+.op-sc-now .op-sc-tag { color: var(--op-positive); }
+.op-sc-wait .op-sc-tag { color: var(--op-negative); }
+.op-roi-scenario strong {
+  font-size: 16px;
+}
+.op-sc-details {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--op-muted);
+}
+.op-sc-details strong {
+  font-size: 13px;
+  color: var(--op-ink);
+}
+.op-roi-visual-box {
+  background: var(--op-surface-2);
+  border-radius: var(--op-radius-m);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  justify-content: space-between;
+}
+.op-roi-slider-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.op-roi-conclusion {
+  background: #fff;
+  border: 1px solid var(--op-line);
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--op-ink);
+}
+.op-roi-conclusion p {
+  margin: 0;
+}
+.op-conclusion-bullet {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+@media (max-width: 860px) {
+  .op-roi-grid { grid-template-columns: 1fr; }
+  .op-roi-compare-box { grid-template-columns: 1fr; }
+}
