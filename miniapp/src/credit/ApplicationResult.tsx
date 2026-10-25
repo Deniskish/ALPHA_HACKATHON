@@ -15,6 +15,7 @@ import { errorMessage, formatDate, formatDateTime, months } from './format';
 import { navigate } from './routes';
 import { Improvements } from './Improvements';
 import { Explanation } from './Explanation';
+import { CashFlowSimulator } from './CashFlowSimulator';
 import type { OfferTerms } from '../../api-server/credit/types';
 
 function Offer({ offer, productName, requested }: { offer: OfferTerms; productName: string; requested?: { amount: number; term: number } }) {
@@ -87,6 +88,16 @@ export function ApplicationResult({ view, onChange }: { view: ApplicationView; o
         <div><h3>Что дальше</h3><p>{next}</p></div>
       </section>}
       {decision && decision.outcome !== 'NEEDS_INFO' && <Explanation applicationId={app.id} attempt={app.attempt} kind="decision" />}
+      {offer && (view.company?.financials || app.declaredFinancials) && (
+        <CashFlowSimulator
+          annualRevenue={(view.company?.financials ?? app.declaredFinancials)!.revenue}
+          annualExpenses={(view.company?.financials ?? app.declaredFinancials)!.expenses || (view.company?.financials ?? app.declaredFinancials)!.revenue * 0.8}
+          loanAmount={offer.amount}
+          loanRate={offer.rate}
+          loanTermMonths={offer.termMonths}
+          existingDebt={(view.company?.financials ?? app.declaredFinancials)!.currentDebt || 0}
+        />
+      )}
       {improvable && <Improvements applicationId={app.id} attempt={app.attempt} />}
     </div>
     <History view={view} />
@@ -134,6 +145,16 @@ function FinancingPanel({ view, busy, error, onPay }: { view: ApplicationView; b
         </div>
         <p className="op-verdict-note">Платежи и проводки не выполняются: график рассчитывается из условий договора для демонстрации сопровождения.</p>
       </section>
+      {view.company?.financials && (
+        <CashFlowSimulator
+          annualRevenue={view.company.financials.revenue}
+          annualExpenses={view.company.financials.expenses || view.company.financials.revenue * 0.8}
+          loanAmount={financing.amount}
+          loanRate={financing.rate}
+          loanTermMonths={financing.termMonths}
+          existingDebt={view.company.financials.currentDebt || 0}
+        />
+      )}
       <Section title="Следующие возможности" icon={ChartLineAscMIcon} description="Что ещё может понадобиться бизнесу — с условиями доступности">
         <div className="op-opportunities">{financing.opportunities.map((item) => <article key={item.code} className="op-opportunity" data-available={item.available}>
           <IconTile icon={opportunityIcons[item.code] ?? CashMoneyMIcon} tone={item.available ? 'accent' : 'neutral'} size={48} />

@@ -15,6 +15,7 @@ import { navigate } from './routes';
 import { checkStatusLabels, clientStateLabels, documentLabels, outcomeLabels, providerLabels, purposeLabels, riskLabels } from '../../api-server/credit/labels';
 import { processingStates } from '../../api-server/credit/state-machine';
 import type { ApplicationState, RiskLevel } from '../../api-server/credit/types';
+import { CashFlowSimulator } from './CashFlowSimulator';
 
 const payloadLabels: Record<string, string> = {
   active: 'Действует', registrationDate: 'Дата регистрации', okved: 'ОКВЭД', activeDebt: 'Действующий долг', overdueAmount: 'Сумма просрочки',
@@ -161,7 +162,7 @@ function BankList() {
   </div>;
 }
 
-type TabId = 'overview' | 'checks' | 'risk' | 'decision' | 'history';
+type TabId = 'overview' | 'checks' | 'risk' | 'decision' | 'stress' | 'history';
 function BankApplication({ id }: { id: string }) {
   const [view, setView] = useState<BankView | null>(null);
   const [error, setError] = useState('');
@@ -267,6 +268,20 @@ function BankApplication({ id }: { id: string }) {
           </> : <p className="op-empty">Решение ещё не сформировано.</p>}
           {view.financing && <Facts items={[['Финансирование', `${view.financing.status} (симуляция)`], ['Остаток', <Money key="o" value={view.financing.remainingPrincipal} />],
             ['Оплачено платежей', `${view.financing.paidInstallments} из ${view.financing.termMonths}`]]} />}
+        </div></Tab>
+        <Tab id="stress" title="Стресс-тест кассы"><div className="op-tab">
+          {((company.financials ?? app.declaredFinancials)) ? (
+            <CashFlowSimulator
+              annualRevenue={(company.financials ?? app.declaredFinancials)!.revenue}
+              annualExpenses={(company.financials ?? app.declaredFinancials)!.expenses || (company.financials ?? app.declaredFinancials)!.revenue * 0.8}
+              loanAmount={decision?.offer?.amount ?? app.acceptedOffer?.amount ?? view.financing?.amount ?? app.requestedAmount ?? 1_000_000}
+              loanRate={decision?.offer?.rate ?? app.acceptedOffer?.rate ?? view.financing?.rate ?? 19.5}
+              loanTermMonths={decision?.offer?.termMonths ?? app.acceptedOffer?.termMonths ?? view.financing?.termMonths ?? app.requestedTermMonths ?? 12}
+              existingDebt={(company.financials ?? app.declaredFinancials)!.currentDebt || 0}
+            />
+          ) : (
+            <p className="op-empty">Для расчёта стресс-теста требуются финансовые показатели компании (выручка и расходы).</p>
+          )}
         </div></Tab>
         <Tab id="history" title="История"><div className="op-tab">
           <ol className="op-events">{view.events.map((event) => <li key={event.id}>
