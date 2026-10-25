@@ -19,6 +19,7 @@ test-results/
 # Необязательные скрипты, временные данные и логи.
 /tools-local/
 tmp/
+ctx/
 *.db
 *.db-journal
 *.log
