@@ -18,6 +18,7 @@ import { Explanation } from './Explanation';
 import { CashFlowSimulator } from './CashFlowSimulator';
 import { LoyaltyTrack } from './LoyaltyTrack';
 import { B2BNetworkGraph } from './B2BNetworkGraph';
+import { DealNegotiator } from './DealNegotiator';
 import type { OfferTerms } from '../../api-server/credit/types';
 
 function Offer({ offer, productName, requested }: { offer: OfferTerms; productName: string; requested?: { amount: number; term: number } }) {
@@ -105,6 +106,16 @@ export function ApplicationResult({ view, onChange }: { view: ApplicationView; o
           companyInn={view.company.inn}
           companyName={view.company.name}
           annualRevenue={(view.company.financials ?? app.declaredFinancials)?.revenue ?? 20_000_000}
+        />
+      )}
+      {decision && decision.outcome === 'COUNTER_OFFER' && decision.offer && (
+        <DealNegotiator
+          offeredAmount={decision.offer.amount}
+          requestedAmount={app.requestedAmount ?? decision.offer.amount}
+          offeredTermMonths={decision.offer.termMonths}
+          requestedTermMonths={app.requestedTermMonths ?? decision.offer.termMonths}
+          baseRate={decision.offer.rate}
+          monthlyProfit={Math.round((((view.company?.financials ?? app.declaredFinancials)?.revenue ?? 12_000_000) * 0.15) / 12)}
         />
       )}
       {improvable && <Improvements applicationId={app.id} attempt={app.attempt} />}

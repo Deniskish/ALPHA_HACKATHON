@@ -1928,3 +1928,183 @@ svg { flex: none; }
 .op-audio-transcript strong {
   color: #ff8a80;
 }
+
+/* Pareto Deal Negotiator */
+.op-negotiator-card {
+  background: #fff;
+  border: 1.5px solid var(--op-line);
+  border-radius: var(--op-radius, 24px);
+  padding: 24px;
+  margin-top: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  box-shadow: var(--op-shadow);
+}
+.op-negotiator-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.op-negotiator-badge {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--op-accent, #ef3124);
+  letter-spacing: 0.05em;
+}
+.op-negotiator-title {
+  margin: 4px 0 2px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--op-ink);
+}
+.op-prob-pill {
+  border-radius: 12px;
+  padding: 8px 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+.op-prob-pill[data-prob=\"high\"] {
+  background: var(--op-positive-soft);
+  color: var(--op-positive);
+  border: 1px solid rgba(13, 147, 54, 0.3);
+}
+.op-prob-pill[data-prob=\"medium\"] {
+  background: var(--op-attention-soft);
+  color: var(--op-attention);
+  border: 1px solid rgba(234, 131, 19, 0.3);
+}
+.op-prob-pill[data-prob=\"low\"] {
+  background: var(--op-accent-soft);
+  color: var(--op-negative);
+  border: 1px solid rgba(239, 49, 36, 0.3);
+}
+.op-prob-val {
+  font-size: 18px;
+  font-weight: 800;
+}
+.op-prob-lbl {
+  font-size: 11px;
+  font-weight: 600;
+}
+.op-negotiator-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr;
+  gap: 20px;
+}
+.op-controls-col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.op-slider-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.op-slider-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+}
+.op-slider-meta strong {
+  color: var(--op-ink);
+  font-size: 16px;
+}
+.op-range-slider {
+  width: 100%;
+  accent-color: var(--op-accent, #ef3124);
+  cursor: pointer;
+}
+.op-slider-bounds {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--op-muted);
+}
+.op-levers-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+.op-levers-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--op-ink);
+}
+.op-levers-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.op-lever-item {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  background: var(--op-surface-2);
+  border: 1px solid var(--op-line);
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.15s ease;
+}
+.op-lever-item.active {
+  background: #f0fdf4;
+  border-color: rgba(13, 147, 54, 0.4);
+}
+.op-lever-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.op-lever-body small {
+  color: var(--op-positive);
+  font-weight: 600;
+}
+.op-results-col {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  justify-content: space-between;
+  background: #fafbfc;
+  border: 1px solid var(--op-line);
+  border-radius: var(--op-radius-m);
+  padding: 16px;
+}
+.op-pareto-metrics {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.op-p-metric {
+  background: #fff;
+  border: 1px solid var(--op-line);
+  border-radius: 10px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.op-p-metric strong {
+  font-size: 16px;
+}
+.op-pareto-curve-box {
+  background: #fff;
+  border: 1px solid var(--op-line);
+  border-radius: 12px;
+  padding: 8px;
+}
+.op-pareto-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+@media (max-width: 860px) {
+  .op-negotiator-grid { grid-template-columns: 1fr; }
+}
