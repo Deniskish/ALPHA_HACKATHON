@@ -18,6 +18,7 @@ import type { ApplicationState, RiskLevel } from '../../api-server/credit/types'
 import { CashFlowSimulator } from './CashFlowSimulator';
 import { ModelGovernance } from './ModelGovernance';
 import { B2BNetworkGraph } from './B2BNetworkGraph';
+import { AudioBriefing } from './AudioBriefing';
 
 const payloadLabels: Record<string, string> = {
   active: 'Действует', registrationDate: 'Дата регистрации', okved: 'ОКВЭД', activeDebt: 'Действующий долг', overdueAmount: 'Сумма просрочки',
@@ -205,6 +206,7 @@ function BankApplication({ id }: { id: string }) {
       <div className="op-kpi"><span>Решение</span><strong className="op-kpi-outcome" data-outcome={decision?.outcome}>{decision ? outcomeLabels[decision.outcome] : '—'}</strong></div>
       <div className="op-kpi"><span>Полнота</span><strong>{Math.round(view.readiness.completeness * 100)}%</strong></div>
     </div>
+    <AudioBriefing view={view} />
     <section className="op-card op-bank-card">
       <Pipeline view={view} />
       <Tabs selectedId={tab} onChange={(_, { selectedId }) => setTab(selectedId as TabId)} scrollable size={compact ? 'm' : 's'}>

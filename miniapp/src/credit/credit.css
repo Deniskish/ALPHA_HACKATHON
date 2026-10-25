@@ -1801,3 +1801,130 @@ svg { flex: none; }
 @media (max-width: 800px) {
   .op-network-canvas-wrap { grid-template-columns: 1fr; }
 }
+
+/* Audio Briefing Component */
+.op-audio-brief-card {
+  background: linear-gradient(135deg, #1e1e24 0%, #030306 100%);
+  color: #fff;
+  border-radius: var(--op-radius, 24px);
+  padding: 20px 24px;
+  margin-bottom: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  box-shadow: var(--op-shadow-raised);
+}
+.op-audio-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.op-audio-badge {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #ff8a80;
+  letter-spacing: 0.05em;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.op-mic-dot {
+  color: #EF3124;
+  font-size: 12px;
+}
+.op-audio-title {
+  margin: 4px 0 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: #ffffff;
+}
+.op-audio-speed-picker {
+  display: flex;
+  gap: 6px;
+}
+.op-speed-pill {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #cfd8dc;
+  border-radius: 8px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.op-speed-pill.active {
+  background: #EF3124;
+  color: #fff;
+  border-color: #EF3124;
+}
+.op-audio-player-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
+  padding: 10px 16px;
+}
+.op-audio-play-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #EF3124;
+  border: none;
+  color: #fff;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: transform 0.15s, background 0.15s;
+}
+.op-audio-play-btn:hover {
+  transform: scale(1.05);
+  background: #ff473a;
+}
+.op-audio-waveform {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 36px;
+  flex: 1;
+}
+.op-wave-bar {
+  width: 4px;
+  background: rgba(255, 255, 255, 0.35);
+  border-radius: 2px;
+  min-height: 4px;
+  transition: height 0.2s;
+}
+.op-audio-waveform.animated .op-wave-bar {
+  background: #ff5252;
+  animation: wave-pulse 1s infinite ease-in-out alternate;
+}
+@keyframes wave-pulse {
+  0% { height: 6px; }
+  50% { height: 28px; }
+  100% { height: 10px; }
+}
+.op-audio-timer {
+  font-size: 13px;
+  color: #b0bec5;
+  flex-shrink: 0;
+}
+.op-audio-transcript {
+  font-size: 13px;
+  line-height: 1.45;
+  color: #eceff1;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 12px;
+  padding: 10px 14px;
+  border-left: 3px solid #EF3124;
+}
+.op-audio-transcript strong {
+  color: #ff8a80;
+}
