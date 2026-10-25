@@ -81,6 +81,8 @@ test('approved result explains what happened, why and what to do next', async ()
   const html = renderToStaticMarkup(createElement(ApplicationResult, { view, onChange() {} }));
   for (const text of ['Заявка одобрена', 'Что произошло', 'Почему', 'Что дальше', 'Принять предложение', 'Просрочек по кредитам нет'])
     assert.ok(html.includes(text), text);
+  // Internal engine / bank terms must not appear in client-facing result
+  // (Filter out B2BNetworkGraph which explains banking mechanics or check specifically)
   assert.doesNotMatch(html.replace(/<[^>]+>/g, ' '), internalTerms);
   const run = latestRun(view);
   assert.equal(run.stages, 5); assert.equal(run.checks.length, 3);

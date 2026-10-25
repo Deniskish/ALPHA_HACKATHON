@@ -8,7 +8,7 @@
     "test:production": "node --test scripts/serve.test.cjs scripts/restart-api.test.cjs",
     "check:production": "node scripts/check-production.cjs",
     "preview": "vite preview",
-    "test": "tsx --require ./scripts/static-render-setup.cjs --test src/credit/credit-ui.test.ts dev-server.test.ts",
+    "test": "tsx --require ./scripts/static-render-setup.cjs --test src/credit/credit-ui.test.ts src/credit/b2b-graph.test.ts dev-server.test.ts",
     "test:e2e": "node scripts/credit-e2e.check.cjs"
   },
   "dependencies": {
