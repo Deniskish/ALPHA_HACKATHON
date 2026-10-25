@@ -73,7 +73,7 @@ svg { flex: none; }
 }
 .op-shell-link {
   display: inline-flex; align-items: center; gap: 8px; padding: 9px 14px; border-radius: 999px; text-decoration: none; font-size: 14px; font-weight: 600;
-  color: var(--op-ink); transition: background .15s;
+  color: var(--op-ink); transition: background .15s; border: 0; background: transparent; font-family: inherit; cursor: pointer;
 }
 .op-shell-link:hover { background: var(--op-surface-2); }
 .op-shell-link svg { width: 20px; height: 20px; }
@@ -1424,4 +1424,239 @@ svg { flex: none; }
 @media (max-width: 960px) {
   .op-gov-kpis { grid-template-columns: repeat(2, 1fr); }
   .op-gov-grid-2 { grid-template-columns: 1fr; }
+}
+
+/* Loyalty & Dynamic Rate Discount Track */
+.op-loyalty-card {
+  background: #fff;
+  border: 1px solid var(--op-line);
+  border-radius: var(--op-radius, 24px);
+  padding: 24px;
+  margin-top: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  box-shadow: var(--op-shadow);
+}
+.op-loyalty-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.op-loyalty-badge {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--op-accent, #ef3124);
+  letter-spacing: 0.04em;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.op-loyalty-title {
+  margin: 4px 0 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--op-ink);
+}
+.op-loyalty-rate-box {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+.op-loyalty-rate-box strong {
+  font-size: 17px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.op-discount-badge {
+  background: var(--op-positive-soft);
+  color: var(--op-positive);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+.op-milestones-track {
+  display: flex;
+  justify-content: space-between;
+  position: relative;
+  padding: 10px 0;
+}
+.op-milestones-track::before {
+  content: '';
+  position: absolute;
+  top: 25px;
+  left: 20px;
+  right: 20px;
+  height: 3px;
+  background: var(--op-line);
+  z-index: 1;
+}
+.op-milestone-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  position: relative;
+  z-index: 2;
+  flex: 1;
+}
+.op-milestone-circle {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid var(--op-line);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--op-muted);
+  transition: all 0.2s ease;
+}
+.op-milestone-step.done .op-milestone-circle {
+  background: var(--op-positive);
+  border-color: var(--op-positive);
+  color: #fff;
+}
+.op-milestone-step.current .op-milestone-circle {
+  border-color: var(--op-accent);
+  color: var(--op-accent);
+  box-shadow: 0 0 0 3px var(--op-accent-soft);
+}
+.op-milestone-label {
+  font-size: 11px;
+  color: var(--op-muted);
+  font-weight: 600;
+  text-align: center;
+}
+.op-perks-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+.op-perk-card {
+  border: 1px solid var(--op-line);
+  border-radius: var(--op-radius-m);
+  padding: 14px;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  transition: all 0.2s ease;
+}
+.op-perk-card.active {
+  background: #f7fdf9;
+  border-color: rgba(13, 147, 54, 0.3);
+}
+.op-perk-card.locked {
+  background: var(--op-surface-2);
+  opacity: 0.75;
+}
+.op-perk-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+.op-perk-card.active .op-perk-icon { color: var(--op-positive); }
+.op-perk-card.locked .op-perk-icon { color: var(--op-muted); }
+.op-perk-body strong {
+  display: block;
+  font-size: 13px;
+  margin-bottom: 2px;
+}
+.op-perk-body p {
+  margin: 0;
+  font-size: 12px;
+  color: var(--op-muted);
+  line-height: 1.35;
+}
+.op-loyalty-foot {
+  font-size: 13px;
+  background: var(--op-surface-2);
+  padding: 10px 14px;
+  border-radius: 10px;
+}
+
+/* Modal Sheet for Cross-Device QR */
+.op-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(3, 3, 6, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+}
+.op-modal-sheet {
+  background: #fff;
+  border-radius: var(--op-radius, 24px);
+  padding: 24px;
+  max-width: 380px;
+  width: 100%;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.25);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.op-modal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.op-modal-head h3 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+}
+.op-close-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--op-muted);
+  padding: 4px;
+}
+.op-qr-box {
+  display: flex;
+  justify-content: center;
+  padding: 12px;
+  background: #f8f9fa;
+  border-radius: 16px;
+  border: 1px solid var(--op-line);
+}
+.op-qr-svg {
+  display: block;
+}
+.op-url-copy-box {
+  display: flex;
+  gap: 8px;
+}
+.op-url-input {
+  flex: 1;
+  background: var(--op-surface-2);
+  border: 1px solid var(--op-line);
+  border-radius: 8px;
+  padding: 0 10px;
+  font-size: 12px;
+  color: var(--op-muted);
+}
+.op-modal-foot {
+  margin-top: 4px;
+}
+@media (max-width: 640px) {
+  .op-perks-grid { grid-template-columns: 1fr; }
+  .op-milestones-track { overflow-x: auto; padding-bottom: 8px; }
 }

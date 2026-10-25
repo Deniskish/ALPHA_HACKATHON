@@ -16,6 +16,7 @@ import { navigate } from './routes';
 import { Improvements } from './Improvements';
 import { Explanation } from './Explanation';
 import { CashFlowSimulator } from './CashFlowSimulator';
+import { LoyaltyTrack } from './LoyaltyTrack';
 import type { OfferTerms } from '../../api-server/credit/types';
 
 function Offer({ offer, productName, requested }: { offer: OfferTerms; productName: string; requested?: { amount: number; term: number } }) {
@@ -145,6 +146,11 @@ function FinancingPanel({ view, busy, error, onPay }: { view: ApplicationView; b
         </div>
         <p className="op-verdict-note">Платежи и проводки не выполняются: график рассчитывается из условий договора для демонстрации сопровождения.</p>
       </section>
+      <LoyaltyTrack
+        paidInstallments={financing.paidInstallments}
+        totalTermMonths={financing.termMonths}
+        baseRate={financing.rate}
+      />
       {view.company?.financials && (
         <CashFlowSimulator
           annualRevenue={view.company.financials.revenue}

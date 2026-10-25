@@ -1,10 +1,11 @@
 // «Опора» — умный кредитный кабинет для бизнеса. One CreditApplication, two route shells:
 // the client cabinet (`#/`, `#/credit/...`) and the bank workspace (`#/bank/...`) over the same API.
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { BankMIcon } from '@alfalab/icons-glyph/BankMIcon';
 import { ListBulletedMIcon } from '@alfalab/icons-glyph/ListBulletedMIcon';
 import { ArrowBackMIcon } from '@alfalab/icons-glyph/ArrowBackMIcon';
 import { UserMIcon } from '@alfalab/icons-glyph/UserMIcon';
+import { MobilePhoneMIcon } from '@alfalab/icons-glyph/MobilePhoneMIcon';
 import { navigate, shellOf, useRoute } from './routes';
 import { CreditDashboard } from './CreditDashboard';
 import { NeedStep } from './NeedStep';
@@ -13,6 +14,7 @@ import { BankWorkspace } from './BankWorkspace';
 import { StartScreen } from './StartScreen';
 import { companyInitial, Logo } from './ui';
 import { setSession, useSession } from './session';
+import { QrModal } from './QrModal';
 
 export default function CreditApp() {
   const route = useRoute();
@@ -30,6 +32,7 @@ export default function CreditApp() {
 
 function ClientShell({ children }: { children: ReactNode }) {
   const session = useSession();
+  const [showQr, setShowQr] = useState(false);
   return <div className="op-app op-client">
     <header className="op-topbar">
       <a className="op-brand" href="#/" onClick={() => window.scrollTo({ top: 0 })} aria-label="Опора — на главную">
@@ -43,10 +46,15 @@ function ClientShell({ children }: { children: ReactNode }) {
           <span className="op-company-chip-text"><strong>{session.company.name}</strong>
             <small>{session.relationship === 'client' ? 'клиент банка' : 'пока не клиент'} · сменить</small></span>
         </button>}
+        <button type="button" className="op-shell-link op-qr-btn" onClick={() => setShowQr(true)} aria-label="Открыть на смартфоне">
+          <MobilePhoneMIcon aria-hidden="true" />
+          <span>На смартфоне</span>
+        </button>
         <a className="op-shell-link" href="#/bank" aria-label="Рабочее место банка"><BankMIcon aria-hidden="true" /><span>Рабочее место банка</span></a>
       </div>
     </header>
     <main className="op-main">{children}</main>
+    {showQr && <QrModal onClose={() => setShowQr(false)} />}
     <footer className="op-footer">
       <Logo variant="graphite" kind="mark" height={18} />
       <p>Демонстрационный MVP «Опоры» — модуля финансирования цифрового банка для бизнеса. Компании, продукты, ставки, проверки,
