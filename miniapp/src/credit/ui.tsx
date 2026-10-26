@@ -35,6 +35,27 @@ export function useCompact() {
   return useSyncExternalStore(subscribeCompact, () => matchMedia(compactQuery).matches, () => false);
 }
 
+/** Detects if the user is viewing on a mobile screen or touch-first smartphone. */
+const mobileQuery = '(max-width: 768px), (pointer: coarse) and (max-width: 1024px)';
+const subscribeMobile = (onChange: () => void) => {
+  if (typeof window === 'undefined' || !window.matchMedia) return () => {};
+  const media = window.matchMedia(mobileQuery);
+  media.addEventListener?.('change', onChange);
+  return () => media.removeEventListener?.('change', onChange);
+};
+export function useIsMobile() {
+  return useSyncExternalStore(
+    subscribeMobile,
+    () => {
+      if (typeof window === 'undefined') return false;
+      if (window.innerWidth <= 768) return true;
+      if (window.matchMedia && window.matchMedia(mobileQuery).matches) return true;
+      return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    },
+    () => false
+  );
+}
+
 /** Secondary information: always visible on wide screens, a disclosure row on phones (the «Условия программы ›» pattern of the original «Опора»). */
 export function Reveal({ summary, children, className = '' }: { summary: ReactNode; children: ReactNode; className?: string }) {
   if (!useCompact()) return <>{children}</>;

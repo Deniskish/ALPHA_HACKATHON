@@ -5,6 +5,7 @@ import { CrossMIcon } from '@alfalab/icons-glyph/CrossMIcon';
 import { CopyMIcon } from '@alfalab/icons-glyph/CopyMIcon';
 import { CheckmarkMIcon } from '@alfalab/icons-glyph/CheckmarkMIcon';
 import { qrcodegen } from './qrcodegen';
+import { buildHandoffUrl, useSession } from './session';
 
 interface QrModalProps {
   onClose: () => void;
@@ -13,27 +14,28 @@ interface QrModalProps {
 
 export function QrModal({ onClose, url }: QrModalProps) {
   const [copied, setCopied] = useState(false);
-  const currentUrl =
-    url ||
-    (typeof window !== 'undefined' && window.location?.href
-      ? window.location.href
-      : 'https://alfa.business-opora.ru');
+  const session = useSession();
+
+  // Target URL with embedded handoff session payload
+  const transferUrl = useMemo(() => {
+    return url || buildHandoffUrl(session);
+  }, [url, session]);
 
   // Generate dynamic, standards-compliant QR Code Matrix
   const { qr, totalModules, border } = useMemo(() => {
     let code: qrcodegen.QrCode;
     try {
-      code = qrcodegen.QrCode.encodeText(currentUrl, qrcodegen.QrCode.Ecc.MEDIUM);
+      code = qrcodegen.QrCode.encodeText(transferUrl, qrcodegen.QrCode.Ecc.MEDIUM);
     } catch {
-      code = qrcodegen.QrCode.encodeText(currentUrl, qrcodegen.QrCode.Ecc.LOW);
+      code = qrcodegen.QrCode.encodeText(transferUrl, qrcodegen.QrCode.Ecc.LOW);
     }
     const border = 4; // ISO quiet zone
     return { qr: code, totalModules: code.size + border * 2, border };
-  }, [currentUrl]);
+  }, [transferUrl]);
 
   const handleCopy = () => {
     if (typeof navigator !== 'undefined' && navigator.clipboard) {
-      navigator.clipboard.writeText(currentUrl).then(() => {
+      navigator.clipboard.writeText(transferUrl).then(() => {
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
       });
@@ -68,8 +70,17 @@ export function QrModal({ onClose, url }: QrModalProps) {
         </div>
 
         <p className="op-muted op-small">
-          Отсканируйте камерой смартфона для мгновенной проверки мобильной версии кабинета (360–430px) с сохранением текущей сессии:
+          Отсканируйте камерой смартфона: текущая сессия и выбранная компания синхронизируются автоматически:
         </p>
+
+        {session && (
+          <div className="op-handoff-session-badge">
+            <span className="op-check-dot">●</span>
+            <span>
+              Синхронизация сессии: <strong>{session.company.name}</strong>
+            </span>
+          </div>
+        )}
 
         <div className="op-qr-box">
           <svg
@@ -78,7 +89,7 @@ export function QrModal({ onClose, url }: QrModalProps) {
             height={200}
             className="op-qr-svg"
             role="img"
-            aria-label="QR-код для перехода на мобильную версию"
+            aria-label="QR-код для перехода на мобильную версию с синхронизацией сессии"
           >
             {/* White quiet-zone canvas */}
             <rect width={viewBoxSize} height={viewBoxSize} fill="#ffffff" rx="12" />
@@ -97,7 +108,7 @@ export function QrModal({ onClose, url }: QrModalProps) {
         </div>
 
         <div className="op-url-copy-box">
-          <input type="text" readOnly value={currentUrl} className="op-url-input" />
+          <input type="text" readOnly value={transferUrl} className="op-url-input" />
           <Button
             view="secondary"
             size={40}

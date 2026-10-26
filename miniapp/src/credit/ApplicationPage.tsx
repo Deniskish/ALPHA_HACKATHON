@@ -4,6 +4,7 @@ import { creditApi, type ApplicationView } from './api';
 import { ErrorNote, FlowSteps, Loading, PageTitle, StatusBadge } from './ui';
 import { errorMessage } from './format';
 import { navigate, stages, type Stage } from './routes';
+import { useSession, setSession } from './session';
 import { NeedEdit } from './NeedStep';
 import { MatchStep } from './MatchStep';
 import { FormStep } from './FormStep';
@@ -30,6 +31,20 @@ export function ApplicationPage({ id, stage }: { id: string; stage?: Stage }) {
     creditApi.application(id, signal).then(setView).catch((e) => { if (e.name !== 'AbortError') setError(errorMessage(e)); });
   }, [id]);
   useEffect(() => { const controller = new AbortController(); load(controller.signal); return () => controller.abort(); }, [load]);
+
+  const currentSession = useSession();
+  useEffect(() => {
+    if (view && !currentSession) {
+      setSession({
+        relationship: view.company.relationship,
+        company: {
+          ...view.company,
+          syntheticLabel: view.company.isSynthetic ? 'Синтетические данные' : null,
+        },
+        manual: null,
+      });
+    }
+  }, [view, currentSession]);
 
   if (error && !view) return <div className="op-page"><ErrorNote error={error} onRetry={() => load()} /></div>;
   if (!view) return <div className="op-page"><Loading text="Загружаем заявку…" /></div>;

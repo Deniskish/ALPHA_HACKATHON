@@ -12,7 +12,7 @@ import { NeedStep } from './NeedStep';
 import { ApplicationPage } from './ApplicationPage';
 import { BankWorkspace } from './BankWorkspace';
 import { StartScreen } from './StartScreen';
-import { companyInitial, Logo } from './ui';
+import { companyInitial, Logo, useIsMobile } from './ui';
 import { setSession, useSession } from './session';
 import { QrModal } from './QrModal';
 
@@ -32,6 +32,7 @@ export default function CreditApp() {
 
 function ClientShell({ children }: { children: ReactNode }) {
   const session = useSession();
+  const isMobile = useIsMobile();
   const [showQr, setShowQr] = useState(false);
   return <div className="op-app op-client">
     <header className="op-topbar">
@@ -46,10 +47,18 @@ function ClientShell({ children }: { children: ReactNode }) {
           <span className="op-company-chip-text"><strong>{session.company.name}</strong>
             <small>{session.relationship === 'client' ? 'клиент банка' : 'пока не клиент'} · сменить</small></span>
         </button>}
-        <button type="button" className="op-shell-link op-qr-btn" onClick={() => setShowQr(true)} aria-label="Открыть на смартфоне">
-          <MobilePhoneMIcon aria-hidden="true" />
-          <span>На смартфоне</span>
-        </button>
+        {!isMobile && (
+          <button
+            type="button"
+            className="op-shell-link op-qr-btn"
+            onClick={() => setShowQr(true)}
+            aria-label="Открыть на смартфоне"
+            title="Открыть текущую сессию на смартфоне"
+          >
+            <MobilePhoneMIcon aria-hidden="true" />
+            <span>На смартфоне</span>
+          </button>
+        )}
         <a className="op-shell-link" href="#/bank" aria-label="Рабочее место банка"><BankMIcon aria-hidden="true" /><span>Рабочее место банка</span></a>
       </div>
     </header>
