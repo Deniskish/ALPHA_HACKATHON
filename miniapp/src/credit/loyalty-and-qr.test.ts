@@ -39,4 +39,8 @@ test('QrModal renders valid SVG QR markup', () => {
   const modalHtml = renderToStaticMarkup(createElement(QrModal, { onClose: () => {} }));
   assert.match(modalHtml, /<svg/);
   assert.match(modalHtml, /Открыть на смартфоне/);
+  assert.match(modalHtml, /QR-код для перехода на мобильную версию/);
+  // Ensure real dark modules are rendered
+  const rectMatches = modalHtml.match(/<rect /g) || [];
+  assert.ok(rectMatches.length > 50, `Expected over 50 modules, got ${rectMatches.length}`);
 });

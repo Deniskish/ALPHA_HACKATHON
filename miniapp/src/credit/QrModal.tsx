@@ -1,48 +1,35 @@
-// Cross-Device Omnichannel Handoff Modal with pure SVG QR code
-import { useState } from 'react';
+// Cross-Device Omnichannel Handoff Modal with standard ISO/IEC 18004 SVG QR code
+import { useMemo, useState } from 'react';
 import { Button } from '@alfalab/core-components-button';
 import { CrossMIcon } from '@alfalab/icons-glyph/CrossMIcon';
 import { CopyMIcon } from '@alfalab/icons-glyph/CopyMIcon';
 import { CheckmarkMIcon } from '@alfalab/icons-glyph/CheckmarkMIcon';
+import { qrcodegen } from './qrcodegen';
 
 interface QrModalProps {
   onClose: () => void;
+  url?: string;
 }
 
-// Crisp 25x25 QR Matrix for mobile URL
-const QR_MATRIX_25: number[][] = [
-  [1,1,1,1,1,1,1,0,1,0,1,1,0,1,1,0,1,0,1,1,1,1,1,1,1],
-  [1,0,0,0,0,0,1,0,0,1,0,1,1,0,1,0,0,0,1,0,0,0,0,0,1],
-  [1,0,1,1,1,0,1,0,1,1,0,0,1,1,0,1,1,0,1,0,1,1,1,0,1],
-  [1,0,1,1,1,0,1,0,0,1,1,0,0,1,0,1,0,0,1,0,1,1,1,0,1],
-  [1,0,1,1,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,1,1,0,1],
-  [1,0,0,0,0,0,1,0,0,1,0,1,1,0,1,1,0,0,1,0,0,0,0,0,1],
-  [1,1,1,1,1,1,1,0,1,0,1,0,1,0,1,0,1,0,1,1,1,1,1,1,1],
-  [0,0,0,0,0,0,0,0,1,1,0,1,0,1,1,0,0,0,0,0,0,0,0,0,0],
-  [1,1,0,1,0,1,1,1,0,0,1,1,0,1,0,1,1,1,0,1,0,1,1,0,1],
-  [0,1,1,0,1,0,0,1,1,0,1,0,1,0,1,1,0,1,0,0,1,1,0,1,0],
-  [1,0,1,1,0,1,1,0,0,1,0,1,1,0,0,1,1,0,1,1,0,1,0,1,1],
-  [0,1,0,1,1,0,1,1,1,0,1,0,1,1,1,0,1,0,1,0,1,1,0,1,0],
-  [1,1,1,0,0,1,0,0,1,1,0,1,0,0,1,1,0,1,1,1,0,0,1,1,1],
-  [0,1,0,1,1,0,1,0,1,0,1,1,0,1,0,1,1,0,1,0,1,1,0,1,0],
-  [1,0,1,1,0,1,1,1,0,1,0,1,1,0,1,1,0,1,0,1,1,0,1,0,1],
-  [0,1,1,0,1,0,0,0,1,1,0,1,0,1,1,0,1,0,1,1,0,1,1,0,0],
-  [1,0,0,1,0,1,1,1,0,0,1,1,0,0,1,1,0,1,0,0,1,0,1,1,1],
-  [0,0,0,0,0,0,0,0,1,0,1,0,1,0,1,0,1,1,0,1,0,1,0,1,0],
-  [1,1,1,1,1,1,1,0,1,1,0,1,1,0,1,0,1,0,1,0,1,0,1,0,1],
-  [1,0,0,0,0,0,1,0,0,1,1,0,0,1,0,1,0,1,1,1,0,1,0,1,0],
-  [1,0,1,1,1,0,1,0,1,0,1,1,0,1,1,0,1,0,0,1,1,0,1,0,1],
-  [1,0,1,1,1,0,1,0,1,1,0,0,1,0,1,1,0,1,1,0,1,1,0,1,0],
-  [1,0,1,1,1,0,1,0,0,1,1,1,0,1,0,1,1,0,1,0,1,0,1,0,1],
-  [1,0,0,0,0,0,1,0,1,0,1,0,1,0,1,0,0,1,0,1,0,1,0,1,0],
-  [1,1,1,1,1,1,1,0,1,1,0,1,1,0,1,1,1,0,1,0,1,0,1,0,1]
-];
-
-export function QrModal({ onClose }: QrModalProps) {
+export function QrModal({ onClose, url }: QrModalProps) {
   const [copied, setCopied] = useState(false);
-  const currentUrl = typeof window !== 'undefined' && window.location?.href
-    ? window.location.href
-    : 'https://alfa.business-opora.ru';
+  const currentUrl =
+    url ||
+    (typeof window !== 'undefined' && window.location?.href
+      ? window.location.href
+      : 'https://alfa.business-opora.ru');
+
+  // Generate dynamic, standards-compliant QR Code Matrix
+  const { qr, totalModules, border } = useMemo(() => {
+    let code: qrcodegen.QrCode;
+    try {
+      code = qrcodegen.QrCode.encodeText(currentUrl, qrcodegen.QrCode.Ecc.MEDIUM);
+    } catch {
+      code = qrcodegen.QrCode.encodeText(currentUrl, qrcodegen.QrCode.Ecc.LOW);
+    }
+    const border = 4; // ISO quiet zone
+    return { qr: code, totalModules: code.size + border * 2, border };
+  }, [currentUrl]);
 
   const handleCopy = () => {
     if (typeof navigator !== 'undefined' && navigator.clipboard) {
@@ -53,8 +40,22 @@ export function QrModal({ onClose }: QrModalProps) {
     }
   };
 
-  const size = 200;
-  const cellSize = size / 25;
+  const viewBoxSize = 250;
+  const cellSize = viewBoxSize / totalModules;
+
+  // Build SVG dark module rects
+  const darkCells: Array<{ key: string; x: number; y: number }> = [];
+  for (let r = 0; r < qr.size; r++) {
+    for (let c = 0; c < qr.size; c++) {
+      if (qr.getModule(c, r)) {
+        darkCells.push({
+          key: `${r}-${c}`,
+          x: (c + border) * cellSize,
+          y: (r + border) * cellSize,
+        });
+      }
+    }
+  }
 
   return (
     <div className="op-modal-backdrop" onClick={onClose}>
@@ -71,22 +72,27 @@ export function QrModal({ onClose }: QrModalProps) {
         </p>
 
         <div className="op-qr-box">
-          <svg viewBox={`0 0 ${size} ${size}`} width={size} height={size} className="op-qr-svg">
-            <rect width={size} height={size} fill="#ffffff" rx="12" />
-            {QR_MATRIX_25.map((row, r) =>
-              row.map((cell, c) =>
-                cell ? (
-                  <rect
-                    key={`${r}-${c}`}
-                    x={c * cellSize}
-                    y={r * cellSize}
-                    width={cellSize}
-                    height={cellSize}
-                    fill="#030306"
-                  />
-                ) : null
-              )
-            )}
+          <svg
+            viewBox={`0 0 ${viewBoxSize} ${viewBoxSize}`}
+            width={200}
+            height={200}
+            className="op-qr-svg"
+            role="img"
+            aria-label="QR-код для перехода на мобильную версию"
+          >
+            {/* White quiet-zone canvas */}
+            <rect width={viewBoxSize} height={viewBoxSize} fill="#ffffff" rx="12" />
+            {/* Render verified dark modules */}
+            {darkCells.map((cell) => (
+              <rect
+                key={cell.key}
+                x={cell.x}
+                y={cell.y}
+                width={cellSize + 0.1}
+                height={cellSize + 0.1}
+                fill="#030306"
+              />
+            ))}
           </svg>
         </div>
 
