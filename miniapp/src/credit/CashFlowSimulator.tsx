@@ -56,6 +56,7 @@ export function CashFlowSimulator({
               key={s}
               type="button"
               className={`op-stress-pill ${stress === s ? 'active' : ''}`}
+              style={{ minHeight: 40 }}
               onClick={() => setStress(s)}
             >
               {s === 0 ? 'Базовый (0%)' : `-${s}%`}

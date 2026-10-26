@@ -53,7 +53,7 @@ export function B2BNetworkGraph({
         <SegmentedControl
           selectedId={activeTab}
           onChange={(id) => setActiveTab(id as 'flow' | 'table')}
-          size={32}
+          size={40}
         >
           <Segment id="flow" title="Цепочка расчётов" />
           <Segment id="table" title={`Реестр контрагентов (${analysis.nodes.length})`} />

@@ -264,8 +264,8 @@ export function FormStep({ view, onChange, onSubmit }: { view: ApplicationView; 
       <Section title="Финансы за последний год" icon={ChartPieCoinsMIcon}
         aside={<div className="op-1c-toolbar">
           <input type="file" ref={fileInputRef} style={{ display: 'none' }} accept=".txt,.csv" onChange={handle1CFile} />
-          <Button view="secondary" size={32} onClick={() => fileInputRef.current?.click()}>Загрузить 1С</Button>
-          <Button view="outlined" size={32} onClick={() => setParsed1C(parseOneCStatement(DEMO_1C_STATEMENT_RAW))}>Демо-выписка 1С</Button>
+          <Button view="secondary" size={40} onClick={() => fileInputRef.current?.click()}>Загрузить 1С</Button>
+          <Button view="outlined" size={40} onClick={() => setParsed1C(parseOneCStatement(DEMO_1C_STATEMENT_RAW))}>Демо-выписка 1С</Button>
           {company.relationship === 'client' && app.declaredFinancials && <span className="op-source">подставлено по данным банка</span>}
         </div>}>
         {parsed1C && (

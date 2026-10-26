@@ -116,6 +116,7 @@ export function AudioBriefing({ view }: AudioBriefingProps) {
               key={s}
               type="button"
               className={`op-speed-pill ${rate === s ? 'active' : ''}`}
+              style={{ minHeight: 40 }}
               onClick={() => {
                 setRate(s);
                 if (playing) {

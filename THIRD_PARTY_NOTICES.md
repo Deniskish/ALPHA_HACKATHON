@@ -18,6 +18,7 @@ MVP. Полные тексты лицензий находятся в соотв
 | express | 4.22.3 | MIT | Production-сервер статики |
 | compression | 1.8.2 | MIT | Сжатие ответов |
 | http-proxy-middleware | 3.0.7 | MIT | Proxy `/api` |
+| Project Nayuki QR Code generator library (встроена в `miniapp/src/credit/qrcodegen.js`, https://www.nayuki.io/page/qr-code-generator-library) | исходный код в репозитории | MIT | Динамическая генерация QR-кода в интерфейсе |
 
 Инструменты разработки: vite 5.4.21 (MIT), @vitejs/plugin-react 4.7.0 (MIT), typescript 5.9.3 (Apache-2.0),
 tsx 4.20.6 (MIT), playwright 1.63.0 (Apache-2.0), @types/* (MIT).

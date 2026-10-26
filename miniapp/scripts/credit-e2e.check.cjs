@@ -33,7 +33,8 @@ async function touchTargets(page) {
 
 async function start(page) {
   await page.goto(url + '/#/');
-  await page.evaluate(() => sessionStorage.clear());
+  // After a9ba268 the demo session is kept in both sessionStorage and localStorage (cross-device handoff).
+  await page.evaluate(() => { sessionStorage.clear(); localStorage.clear(); });
   await page.reload();
   await page.getByText('Демонстрационный сценарий: реальной авторизации').waitFor();
 }
